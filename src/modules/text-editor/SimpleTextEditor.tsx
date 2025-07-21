@@ -23,6 +23,9 @@ interface TextEditorProps {
   onContentChange?: (content: string) => void;
   onAnnotationHover?: (annotation: ExternalAnnotation | null) => void;
   onSuggestionTrigger?: () => void;
+  hideControls?: boolean;
+  hideDebug?: boolean;
+  ref?: (el: any) => void;
 }
 
 let editorInstanceCount = 0;
@@ -42,6 +45,17 @@ export default function SimpleTextEditor(props: TextEditorProps) {
 
   // Create editor state instance
   const editorState = new TextEditorState(instanceId);
+
+  // Expose editor methods through ref
+  if (props.ref) {
+    props.ref({
+      undo: () => editorState.undo(),
+      redo: () => editorState.redo(),
+      clear: () => editorState.clear(),
+      canUndo: () => editorState.canUndo(),
+      canRedo: () => editorState.canRedo()
+    });
+  }
 
   // Create annotation manager with editor state
   const annotationManager = new TextEditorAnnotationManager(editorState, props.onAnnotationHover);
@@ -124,7 +138,7 @@ export default function SimpleTextEditor(props: TextEditorProps) {
   });
 
   const containerClasses = () => {
-    const baseClasses = "min-h-32 w-full border border-gray-300 rounded-lg focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-transparent";
+    const baseClasses = "h-full w-full";
     const readonlyClasses = props.readonly ? "bg-gray-50" : "bg-white";
     const customClasses = props.class || "";
 
@@ -132,7 +146,7 @@ export default function SimpleTextEditor(props: TextEditorProps) {
   };
 
   const paragraphClasses = () => {
-    const baseClasses = "editor-paragraph p-t-2 p-x-2 focus:outline-none";
+    const baseClasses = "editor-paragraph p-t-2 p-x-2 focus:outline-none max-w-4xl mx-auto";
     const readonlyClasses = props.readonly ? "cursor-default" : "";
 
     return `${baseClasses} ${readonlyClasses}`;
@@ -199,59 +213,63 @@ export default function SimpleTextEditor(props: TextEditorProps) {
       </div>
 
       {/* Control panel */}
-      <div class="flex flex-wrap gap-2 text-sm">
-        <button
-          onClick={() => editorState.undo()}
-          disabled={!editorState.canUndo()}
-          class="px-3 py-1 bg-blue-100 hover:bg-blue-200 disabled:opacity-50 disabled:cursor-not-allowed rounded border"
-        >
-          Undo
-        </button>
-        <button
-          onClick={() => editorState.redo()}
-          disabled={!editorState.canRedo()}
-          class="px-3 py-1 bg-blue-100 hover:bg-blue-200 disabled:opacity-50 disabled:cursor-not-allowed rounded border"
-        >
-          Redo
-        </button>
-        <button
-          onClick={() => editorState.clear()}
-          disabled={props.readonly}
-          class="px-3 py-1 bg-red-100 hover:bg-red-200 disabled:opacity-50 disabled:cursor-not-allowed rounded border"
-        >
-          Clear
-        </button>
-      </div>
+      {!props.hideControls && (
+        <div class="flex flex-wrap gap-2 text-sm">
+          <button
+            onClick={() => editorState.undo()}
+            disabled={!editorState.canUndo()}
+            class="px-3 py-1 bg-blue-100 hover:bg-blue-200 disabled:opacity-50 disabled:cursor-not-allowed rounded border"
+          >
+            Undo
+          </button>
+          <button
+            onClick={() => editorState.redo()}
+            disabled={!editorState.canRedo()}
+            class="px-3 py-1 bg-blue-100 hover:bg-blue-200 disabled:opacity-50 disabled:cursor-not-allowed rounded border"
+          >
+            Redo
+          </button>
+          <button
+            onClick={() => editorState.clear()}
+            disabled={props.readonly}
+            class="px-3 py-1 bg-red-100 hover:bg-red-200 disabled:opacity-50 disabled:cursor-not-allowed rounded border"
+          >
+            Clear
+          </button>
+        </div>
+      )}
 
       {/* Debug info */}
-      <div class="text-xs text-gray-500 space-y-1 bg-gray-50 p-2 rounded">
-        <div>Characters: {editorState.content().length}</div>
-        <div>Blocks: {editorState.blocks().length}</div>
-        <div>Version: {editorState.version()}</div>
-        <div>
-          Selection: {
-            editorState.selection() ?
-              `P${editorState.selection()!.startParagraph}:${editorState.selection()!.startOffset}-P${editorState.selection()!.endParagraph}:${editorState.selection()!.endOffset}` :
-              'None'
-          }
-        </div>
-        <div>Nodes: {editorState.nodes().length}</div>
-        <div>Can Undo: {editorState.canUndo() ? 'Yes' : 'No'}</div>
-        <div>Can Redo: {editorState.canRedo() ? 'Yes' : 'No'}</div>
-        <div>Has Changes: {editorState.hasUnsavedChanges() ? 'Yes' : 'No'}</div>
+      {!props.hideDebug && (
+        <div class="text-xs text-gray-500 space-y-1 bg-gray-50 p-2 rounded">
+          <div>Characters: {editorState.content().length}</div>
+          <div>Blocks: {editorState.blocks().length}</div>
+          <div>Version: {editorState.version()}</div>
+          <div>
+            Selection: {
+              editorState.selection() ?
+                `P${editorState.selection()!.startParagraph}:${editorState.selection()!.startOffset}-P${editorState.selection()!.endParagraph}:${editorState.selection()!.endOffset}` :
+                'None'
+            }
+          </div>
+          <div>Nodes: {editorState.nodes().length}</div>
+          <div>Can Undo: {editorState.canUndo() ? 'Yes' : 'No'}</div>
+          <div>Can Redo: {editorState.canRedo() ? 'Yes' : 'No'}</div>
+          <div>Has Changes: {editorState.hasUnsavedChanges() ? 'Yes' : 'No'}</div>
 
-        {/* Annotation info */}
-        <div>Annotations: {annotationManager.getInternalAnnotations().length}</div>
-        <div>Hovered: {annotationManager.getHoveredAnnotation()?.id || 'None'}</div>
+          {/* Annotation info */}
+          <div>Annotations: {annotationManager.getInternalAnnotations().length}</div>
+          <div>Hovered: {annotationManager.getHoveredAnnotation()?.id || 'None'}</div>
 
-        {/* JSON State Representation */}
-        <div class="mt-3 pt-2 border-t border-gray-300">
-          <div class="font-semibold mb-2">State JSON:</div>
-          <pre class="bg-white p-2 rounded border text-xs overflow-auto max-h-40 whitespace-pre-wrap font-mono">
-            {JSON.stringify(editorState.toJSON(), null, 2)}
-          </pre>
+          {/* JSON State Representation */}
+          <div class="mt-3 pt-2 border-t border-gray-300">
+            <div class="font-semibold mb-2">State JSON:</div>
+            <pre class="bg-white p-2 rounded border text-xs overflow-auto max-h-40 whitespace-pre-wrap font-mono">
+              {JSON.stringify(editorState.toJSON(), null, 2)}
+            </pre>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

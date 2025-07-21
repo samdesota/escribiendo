@@ -159,6 +159,15 @@ export class LLMSuggestionManager {
   }
 
   /**
+   * Dismiss a specific suggestion by ID
+   */
+  dismissSuggestion(suggestionId: string): void {
+    const currentSuggestions = this.currentSuggestions();
+    const filteredSuggestions = currentSuggestions.filter(s => s.id !== suggestionId);
+    this.updateAnnotations(filteredSuggestions);
+  }
+
+  /**
    * Get suggestions grouped by type for display
    */
   getSuggestionsByType(): {

@@ -362,7 +362,7 @@ export function AnnotationOverlay(props: {
               {(location) => (
                 console.log(location()),
                 <div
-                  class="absolute pointer-events-auto cursor-pointer"
+                  class="absolute pointer-events-none cursor-pointer"
                   style={{
                     left: `${location().left}px`,
                     top: `${location().top}px`,

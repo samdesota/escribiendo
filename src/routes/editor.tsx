@@ -19,6 +19,9 @@ export default function Editor() {
     isAnyLoading: false
   });
 
+  // Editor state for undo/redo/clear operations
+  const [editorRef, setEditorRef] = createSignal<any>(null);
+
   // Local storage functions
   const saveToLocalStorage = (content: string) => {
     try {
@@ -67,6 +70,10 @@ export default function Editor() {
     llmManager.clearSuggestions();
   };
 
+  const dismissSuggestion = (suggestionId: string) => {
+    llmManager.dismissSuggestion(suggestionId);
+  };
+
   const handleSuggestionTrigger = async () => {
     await llmManager.getSuggestionsForText(content());
   };
@@ -77,110 +84,115 @@ export default function Editor() {
       {/* Main editor area */}
       <div class="flex-1 flex flex-col">
         {/* Header */}
-        <div class="bg-white border-b border-gray-200 px-6 py-4">
-          <h1 class="text-2xl font-semibold text-gray-900">Editor</h1>
+        <div class="bg-white border-b border-gray-200 px-6 py-4 flex justify-end items-center">
+          <div class="flex gap-2">
+            <button
+              onClick={() => editorRef()?.undo()}
+              disabled={!editorRef()?.canUndo()}
+              class="px-3 py-1 bg-blue-100 hover:bg-blue-200 disabled:opacity-50 disabled:cursor-not-allowed rounded border text-sm"
+            >
+              Undo
+            </button>
+            <button
+              onClick={() => editorRef()?.redo()}
+              disabled={!editorRef()?.canRedo()}
+              class="px-3 py-1 bg-blue-100 hover:bg-blue-200 disabled:opacity-50 disabled:cursor-not-allowed rounded border text-sm"
+            >
+              Redo
+            </button>
+            <button
+              onClick={() => editorRef()?.clear()}
+              class="px-3 py-1 bg-red-100 hover:bg-red-200 rounded border text-sm"
+            >
+              Clear
+            </button>
+          </div>
         </div>
 
         {/* Editor container */}
-        <div class="flex-1 p-6">
+        <div class="flex-1 pt-8 px-8 bg-white">
           <SimpleTextEditor
+            ref={setEditorRef}
             placeholder="Start writing..."
             initialContent={initialContent()}
             onContentChange={handleContentChange}
             annotations={annotations()}
             onAnnotationHover={handleAnnotationHover}
             onSuggestionTrigger={handleSuggestionTrigger}
+            hideControls={true}
+            hideDebug={true}
             class="h-full"
           />
         </div>
       </div>
 
       {/* Right sidebar */}
-      <div class="w-96 bg-white border-l border-gray-200 flex flex-col">
+      <div class="w-[576px] bg-white border-l border-gray-200 flex flex-col">
         {/* Sidebar content */}
         <div class="flex-1 p-4 space-y-4">
           {/* LLM Suggestions */}
-          <div class="bg-gray-50 rounded-lg p-4">
+          <div class="space-y-2">
             <h3 class="text-sm font-medium text-gray-700 mb-2">Spanish Suggestions</h3>
-            <div class="space-y-2">
-              <button
-                onClick={handleSuggestionTrigger}
-                disabled={content().length < 10 || loadingState().isAnyLoading}
-                class="w-full px-3 py-2 text-sm bg-emerald-600 text-white rounded hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {loadingState().isAnyLoading ? 'Getting Suggestions...' : 'Get Suggestions (Ctrl+Enter)'}
-              </button>
-              <button
-                onClick={clearLLMSuggestions}
-                class="w-full px-3 py-2 text-sm bg-orange-600 text-white rounded hover:bg-orange-700"
-              >
-                Clear Suggestions
-              </button>
-            </div>
+            <button
+              onClick={handleSuggestionTrigger}
+              disabled={content().length < 10 || loadingState().isAnyLoading}
+              class="w-full px-3 py-2 text-sm bg-emerald-600 text-white rounded hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {loadingState().isAnyLoading ? 'Getting Suggestions...' : 'Get Suggestions (Ctrl+Enter)'}
+            </button>
+            <button
+              onClick={clearLLMSuggestions}
+              class="w-full px-3 py-2 text-sm bg-orange-600 text-white rounded hover:bg-orange-700"
+            >
+              Clear Suggestions
+            </button>
           </div>
 
-          {/* Grammar Suggestions */}
-          <div class="bg-gray-50 rounded-lg p-4">
+          {/* All Suggestions */}
+          <div class="flex-1 flex flex-col space-y-2">
             <h3 class="text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
-              <div class="w-3 h-3 rounded bg-red-500"></div>
-              Grammar Errors
-              {loadingState().grammar && <div class="w-4 h-4 border-2 border-gray-300 border-t-red-500 rounded-full animate-spin"></div>}
+              All Suggestions
+              {loadingState().isAnyLoading && <div class="w-4 h-4 border-2 border-gray-300 border-t-blue-500 rounded-full animate-spin"></div>}
             </h3>
-            <div class="space-y-2 max-h-32 overflow-y-auto">
-              <For each={llmManager.getSuggestionsByType().grammar}>
-                {(annotation) => (
-                  <div class="text-xs p-2 bg-white rounded border border-red-200">
-                    <div class="font-medium text-red-700">{annotation.id.split('-')[0]}</div>
-                    <div class="text-gray-600 mt-1 whitespace-pre-wrap">{annotation.description}</div>
-                  </div>
-                )}
-              </For>
-              {llmManager.getSuggestionsByType().grammar.length === 0 && !loadingState().grammar && (
-                <p class="text-sm text-gray-500">No grammar suggestions</p>
-              )}
-            </div>
-          </div>
+            <div class="flex-1 space-y-2 overflow-y-auto">
+              <For each={(() => {
+                // Get all suggestions and sort by position in text
+                const allSuggestions = llmManager.getCurrentSuggestions();
+                return allSuggestions.sort((a, b) => {
+                  if (a.startParagraph !== b.startParagraph) {
+                    return a.startParagraph - b.startParagraph;
+                  }
+                  return a.startOffset - b.startOffset;
+                });
+              })()}>
+                {(annotation) => {
+                  const type = annotation.id.split('-')[0];
+                  const colorMap = {
+                    grammar: 'border-red-200 text-red-700',
+                    'natural-phrases': 'border-amber-200 text-amber-700',
+                    'english-words': 'border-blue-200 text-blue-700'
+                  };
+                  const colorClass = colorMap[type as keyof typeof colorMap] || 'border-gray-200 text-gray-700';
 
-          {/* Natural Phrases */}
-          <div class="bg-gray-50 rounded-lg p-4">
-            <h3 class="text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
-              <div class="w-3 h-3 rounded bg-amber-500"></div>
-              Natural Phrases
-              {loadingState().naturalPhrases && <div class="w-4 h-4 border-2 border-gray-300 border-t-amber-500 rounded-full animate-spin"></div>}
-            </h3>
-            <div class="space-y-2 max-h-32 overflow-y-auto">
-              <For each={llmManager.getSuggestionsByType().naturalPhrases}>
-                {(annotation) => (
-                  <div class="text-xs p-2 bg-white rounded border border-amber-200">
-                    <div class="font-medium text-amber-700">{annotation.id.split('-')[0]}</div>
-                    <div class="text-gray-600 mt-1 whitespace-pre-wrap">{annotation.description}</div>
-                  </div>
-                )}
+                  return (
+                    <div class={`text-xs p-2 bg-white rounded border ${colorClass} flex gap-2`}>
+                      <div class="flex-1">
+                        <div class="font-medium">{type.replace('-', ' ')}</div>
+                        <div class="text-gray-600 mt-1 whitespace-pre-wrap">{annotation.description}</div>
+                      </div>
+                      <button
+                        onClick={() => dismissSuggestion(annotation.id)}
+                        class="flex-shrink-0 w-5 h-5 flex items-center justify-center text-green-600 hover:text-green-800 hover:bg-green-50 rounded"
+                        title="Dismiss suggestion"
+                      >
+                        ✓
+                      </button>
+                    </div>
+                  );
+                }}
               </For>
-              {llmManager.getSuggestionsByType().naturalPhrases.length === 0 && !loadingState().naturalPhrases && (
-                <p class="text-sm text-gray-500">No natural phrase suggestions</p>
-              )}
-            </div>
-          </div>
-
-          {/* English Words */}
-          <div class="bg-gray-50 rounded-lg p-4">
-            <h3 class="text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
-              <div class="w-3 h-3 rounded bg-blue-500"></div>
-              English Words
-              {loadingState().englishWords && <div class="w-4 h-4 border-2 border-gray-300 border-t-blue-500 rounded-full animate-spin"></div>}
-            </h3>
-            <div class="space-y-2 max-h-32 overflow-y-auto">
-              <For each={llmManager.getSuggestionsByType().englishWords}>
-                {(annotation) => (
-                  <div class="text-xs p-2 bg-white rounded border border-blue-200">
-                    <div class="font-medium text-blue-700">{annotation.id.split('-')[0]}</div>
-                    <div class="text-gray-600 mt-1 whitespace-pre-wrap">{annotation.description}</div>
-                  </div>
-                )}
-              </For>
-              {llmManager.getSuggestionsByType().englishWords.length === 0 && !loadingState().englishWords && (
-                <p class="text-sm text-gray-500">No English word suggestions</p>
+              {llmManager.getCurrentSuggestions().length === 0 && !loadingState().isAnyLoading && (
+                <p class="text-sm text-gray-500">No suggestions</p>
               )}
             </div>
           </div>
