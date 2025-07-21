@@ -1,0 +1,9 @@
+---
+description:
+globs:
+alwaysApply: true
+---
+
+
+- This project uses SolidJS for the UI, when creating components prefer to use the SolidJS API
+- For styles, use tailwindcss, we are using uno.css to provide the tailwind styles
