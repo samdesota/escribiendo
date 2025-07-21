@@ -14,8 +14,20 @@ export interface LLMSuggestion {
   originalText: string;
   suggestedText: string;
   explanation: string; // In English for learner understanding
+  contextBefore?: string; // Context before the original text
+  contextAfter?: string; // Context after the original text
   confidence: number;
   type: SuggestionType;
+}
+
+// Raw suggestion from LLM before processing
+export interface RawLLMSuggestion {
+  originalText: string;
+  suggestedText: string;
+  explanation: string;
+  contextBefore: string;
+  contextAfter: string;
+  confidence: number;
 }
 
 export interface LLMSuggestionResponse {

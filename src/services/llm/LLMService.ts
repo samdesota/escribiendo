@@ -5,7 +5,9 @@ import type {
   LLMSuggestionResponse,
   LLMBatchRequest,
   LLMBatchResponse,
-  SuggestionType
+  SuggestionType,
+  RawLLMSuggestion,
+  LLMSuggestion
 } from './types';
 
 export class LLMService {
@@ -16,6 +18,112 @@ export class LLMService {
     this.anthropic = new Anthropic({
       dangerouslyAllowBrowser: true,
       apiKey: apiKey || import.meta.env.VITE_ANTHROPIC_API_KEY || '',
+    });
+  }
+
+  /**
+   * Find exact character offsets using context before/after
+   */
+  private findExactOffsets(
+    fullText: string,
+    originalText: string,
+    contextBefore: string,
+    contextAfter: string
+  ): { startOffset: number; endOffset: number } | null {
+    // Clean up context strings (trim whitespace)
+    const cleanContextBefore = contextBefore.trim();
+    const cleanContextAfter = contextAfter.trim();
+    const cleanOriginalText = originalText.trim();
+
+    // Create search pattern: contextBefore + originalText + contextAfter
+    const searchPattern = `${cleanContextBefore} ${cleanOriginalText} ${cleanContextAfter}`;
+
+    // Find the pattern in the full text
+    let searchIndex = fullText.indexOf(searchPattern);
+    if (searchIndex !== -1) {
+      const startOffset = searchIndex + cleanContextBefore.length + 1; // +1 for space
+      const endOffset = startOffset + cleanOriginalText.length;
+      return { startOffset, endOffset };
+    }
+
+    // Fallback: try with more flexible whitespace matching
+    const flexiblePattern = new RegExp(
+      cleanContextBefore.replace(/\s+/g, '\\s+') +
+      '\\s+' +
+      cleanOriginalText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') +
+      '\\s+' +
+      cleanContextAfter.replace(/\s+/g, '\\s+'),
+      'i'
+    );
+
+    const match = fullText.match(flexiblePattern);
+    if (match) {
+      const matchStart = fullText.indexOf(match[0]);
+      const beforeLength = cleanContextBefore.length;
+      // Find the start of originalText within the match
+      const originalStart = match[0].indexOf(cleanOriginalText, beforeLength);
+      if (originalStart !== -1) {
+        const startOffset = matchStart + originalStart;
+        const endOffset = startOffset + cleanOriginalText.length;
+        return { startOffset, endOffset };
+      }
+    }
+
+    // Last resort: just find the original text directly (less precise)
+    const directIndex = fullText.indexOf(cleanOriginalText);
+    if (directIndex !== -1) {
+      return {
+        startOffset: directIndex,
+        endOffset: directIndex + cleanOriginalText.length
+      };
+    }
+
+    return null;
+  }
+
+  /**
+   * Process raw LLM suggestions to add exact offsets
+   */
+  private processRawSuggestions(
+    rawSuggestions: RawLLMSuggestion[],
+    fullText: string,
+    type: SuggestionType
+  ): LLMSuggestion[] {
+    return rawSuggestions.map(rawSuggestion => {
+      const offsets = this.findExactOffsets(
+        fullText,
+        rawSuggestion.originalText,
+        rawSuggestion.contextBefore,
+        rawSuggestion.contextAfter
+      );
+
+      if (!offsets) {
+        console.warn(`Could not find exact offsets for suggestion: "${rawSuggestion.originalText}"`);
+        // Return a suggestion with placeholder offsets
+        return {
+          startOffset: 0,
+          endOffset: rawSuggestion.originalText.length,
+          originalText: rawSuggestion.originalText,
+          suggestedText: rawSuggestion.suggestedText,
+          explanation: rawSuggestion.explanation,
+          contextBefore: rawSuggestion.contextBefore,
+          contextAfter: rawSuggestion.contextAfter,
+          confidence: rawSuggestion.confidence * 0.5, // Reduce confidence due to positioning uncertainty
+          type
+        };
+      }
+
+      return {
+        startOffset: offsets.startOffset,
+        endOffset: offsets.endOffset,
+        originalText: rawSuggestion.originalText,
+        suggestedText: rawSuggestion.suggestedText,
+        explanation: rawSuggestion.explanation,
+        contextBefore: rawSuggestion.contextBefore,
+        contextAfter: rawSuggestion.contextAfter,
+        confidence: rawSuggestion.confidence,
+        type
+      };
     });
   }
 
@@ -53,12 +161,17 @@ export class LLMService {
 
       const parsedResponse = JSON.parse(jsonMatch[0]);
 
-      // Add type and validate suggestions
-      const suggestions = parsedResponse.suggestions.map((suggestion: any) => ({
-        ...suggestion,
-        type: request.type,
+      // Process raw suggestions to add exact offsets
+      const rawSuggestions: RawLLMSuggestion[] = parsedResponse.suggestions.map((suggestion: any) => ({
+        originalText: suggestion.originalText,
+        suggestedText: suggestion.suggestedText,
+        explanation: suggestion.explanation,
+        contextBefore: suggestion.contextBefore || '',
+        contextAfter: suggestion.contextAfter || '',
         confidence: suggestion.confidence || 0.7
       }));
+
+      const suggestions = this.processRawSuggestions(rawSuggestions, request.text, request.type);
 
       return {
         suggestions,

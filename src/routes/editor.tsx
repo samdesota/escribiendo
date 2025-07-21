@@ -81,7 +81,7 @@ export default function Editor() {
         <div class="flex-1 p-6">
           <SimpleTextEditor
             placeholder="Start writing..."
-            initialContent="Hello world! This is a sample text that will have some annotations for demonstration purposes."
+            initialContent="Nuestra empresa es una empresa de software que desarrolla software para la industria de la construcción. Nuestra misión es ayudar a nuestros clientes a mejorar su eficiencia y productivity."
             onContentChange={handleContentChange}
             annotations={annotations()}
             onAnnotationHover={handleAnnotationHover}
@@ -100,36 +100,6 @@ export default function Editor() {
 
         {/* Sidebar content */}
         <div class="flex-1 p-4 space-y-4">
-          {/* Document stats */}
-          <div class="bg-gray-50 rounded-lg p-4">
-            <h3 class="text-sm font-medium text-gray-700 mb-2">Document Stats</h3>
-            <div class="space-y-1 text-sm text-gray-600">
-              <div>Characters: {content().length}</div>
-              <div>Words: {content().split(/\s+/).filter(word => word.length > 0).length}</div>
-              <div>Lines: {content().split('\n').length}</div>
-            </div>
-          </div>
-
-          {/* Annotation tools */}
-          <div class="bg-gray-50 rounded-lg p-4">
-            <h3 class="text-sm font-medium text-gray-700 mb-2">Annotation Tools</h3>
-            <div class="space-y-2">
-              <button
-                onClick={addRandomAnnotation}
-                disabled={content().length < 10}
-                class="w-full px-3 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Add Random Annotation
-              </button>
-              <button
-                onClick={clearAnnotations}
-                class="w-full px-3 py-2 text-sm bg-red-600 text-white rounded hover:bg-red-700"
-              >
-                Clear All Annotations
-              </button>
-            </div>
-          </div>
-
           {/* LLM Suggestions */}
           <div class="bg-gray-50 rounded-lg p-4">
             <h3 class="text-sm font-medium text-gray-700 mb-2">Spanish Suggestions</h3>
@@ -206,36 +176,6 @@ export default function Editor() {
               ))}
               {llmManager.getSuggestionsByType().englishWords.length === 0 && !loadingState().englishWords && (
                 <p class="text-sm text-gray-500">No English word suggestions</p>
-              )}
-            </div>
-          </div>
-
-          <div class="bg-gray-50 rounded-lg p-4">
-            <h3 class="text-sm font-medium text-gray-700 mb-2">Settings</h3>
-            <p class="text-sm text-gray-500">Editor settings will go here</p>
-          </div>
-
-          {/* Manual Annotations section */}
-          <div class="bg-gray-50 rounded-lg p-4">
-            <h3 class="text-sm font-medium text-gray-700 mb-2">Manual Annotations ({manualAnnotations().length})</h3>
-            <div class="space-y-2 max-h-40 overflow-y-auto">
-              {manualAnnotations().map((annotation) => (
-                <div class="text-xs p-2 bg-white rounded border">
-                  <div class="flex items-center gap-2">
-                    <div
-                      class="w-3 h-3 rounded border"
-                      style={{ "background-color": annotation.color }}
-                    />
-                    <span class="font-medium">{annotation.id}</span>
-                  </div>
-                  <div class="text-gray-600 mt-1">{annotation.description}</div>
-                  <div class="text-gray-500 mt-1">
-                    P{annotation.startParagraph}:{annotation.startOffset}-{annotation.endOffset}
-                  </div>
-                </div>
-              ))}
-              {manualAnnotations().length === 0 && (
-                <p class="text-sm text-gray-500">No manual annotations</p>
               )}
             </div>
           </div>
