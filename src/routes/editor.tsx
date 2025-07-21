@@ -1,10 +1,13 @@
-import { createSignal } from 'solid-js';
+import { createSignal, onMount, For } from 'solid-js';
 import { SimpleTextEditor, type ExternalAnnotation, LLMSuggestionManager, type LoadingState } from '~/modules/text-editor';
 import DebugPanel from '~/components/DebugPanel';
+
+const STORAGE_KEY = 'editor-content';
 
 export default function Editor() {
   const [content, setContent] = createSignal('');
   const [hoveredAnnotation, setHoveredAnnotation] = createSignal<ExternalAnnotation | null>(null);
+  const [initialContent, setInitialContent] = createSignal('');
 
   // Sample annotations for demonstration
   const [manualAnnotations, setManualAnnotations] = createSignal<ExternalAnnotation[]>([]);
@@ -14,6 +17,32 @@ export default function Editor() {
     naturalPhrases: false,
     englishWords: false,
     isAnyLoading: false
+  });
+
+  // Local storage functions
+  const saveToLocalStorage = (content: string) => {
+    try {
+      localStorage.setItem(STORAGE_KEY, content);
+    } catch (error) {
+      console.warn('Failed to save content to localStorage:', error);
+    }
+  };
+
+  const loadFromLocalStorage = (): string => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      return saved || "";
+    } catch (error) {
+      console.warn('Failed to load content from localStorage:', error);
+      return "";
+    }
+  };
+
+  // Load content from localStorage on mount
+  onMount(() => {
+    const savedContent = loadFromLocalStorage();
+    setInitialContent(savedContent);
+    setContent(savedContent);
   });
 
   // Combined annotations for the editor
@@ -27,36 +56,11 @@ export default function Editor() {
 
   const handleContentChange = (newContent: string) => {
     setContent(newContent);
+    saveToLocalStorage(newContent);
   };
 
   const handleAnnotationHover = (annotation: ExternalAnnotation | null) => {
     setHoveredAnnotation(annotation);
-  };
-
-  const addRandomAnnotation = () => {
-    const currentContent = content();
-    if (currentContent.length < 10) return;
-
-    const start = Math.floor(Math.random() * (currentContent.length - 5));
-    const end = start + Math.floor(Math.random() * 10) + 3;
-    const colors = ['#ef4444', '#f59e0b', '#3b82f6', '#10b981', '#8b5cf6'];
-    const types = ['grammar', 'spelling', 'style', 'clarity', 'tone'];
-
-    const newAnnotation: ExternalAnnotation = {
-      id: `${types[Math.floor(Math.random() * types.length)]}-${Date.now()}`,
-      startParagraph: 0, // Simple demo - all in first paragraph
-      startOffset: start,
-      endParagraph: 0,
-      endOffset: Math.min(end, currentContent.length),
-      color: colors[Math.floor(Math.random() * colors.length)],
-      description: 'Auto-generated suggestion for demonstration'
-    };
-
-    setManualAnnotations([...manualAnnotations(), newAnnotation]);
-  };
-
-  const clearAnnotations = () => {
-    setManualAnnotations([]);
   };
 
   const clearLLMSuggestions = () => {
@@ -81,7 +85,7 @@ export default function Editor() {
         <div class="flex-1 p-6">
           <SimpleTextEditor
             placeholder="Start writing..."
-            initialContent="Nuestra empresa es una empresa de software que desarrolla software para la industria de la construcción. Nuestra misión es ayudar a nuestros clientes a mejorar su eficiencia y productivity."
+            initialContent={initialContent()}
             onContentChange={handleContentChange}
             annotations={annotations()}
             onAnnotationHover={handleAnnotationHover}
@@ -92,12 +96,7 @@ export default function Editor() {
       </div>
 
       {/* Right sidebar */}
-      <div class="w-80 bg-white border-l border-gray-200 flex flex-col">
-        {/* Sidebar header */}
-        <div class="border-b border-gray-200 px-4 py-4">
-          <h2 class="text-lg font-medium text-gray-900">Side Panel</h2>
-        </div>
-
+      <div class="w-96 bg-white border-l border-gray-200 flex flex-col">
         {/* Sidebar content */}
         <div class="flex-1 p-4 space-y-4">
           {/* LLM Suggestions */}
@@ -128,12 +127,14 @@ export default function Editor() {
               {loadingState().grammar && <div class="w-4 h-4 border-2 border-gray-300 border-t-red-500 rounded-full animate-spin"></div>}
             </h3>
             <div class="space-y-2 max-h-32 overflow-y-auto">
-              {llmManager.getSuggestionsByType().grammar.map((annotation) => (
-                <div class="text-xs p-2 bg-white rounded border border-red-200">
-                  <div class="font-medium text-red-700">{annotation.id.split('-')[0]}</div>
-                  <div class="text-gray-600 mt-1 whitespace-pre-wrap">{annotation.description}</div>
-                </div>
-              ))}
+              <For each={llmManager.getSuggestionsByType().grammar}>
+                {(annotation) => (
+                  <div class="text-xs p-2 bg-white rounded border border-red-200">
+                    <div class="font-medium text-red-700">{annotation.id.split('-')[0]}</div>
+                    <div class="text-gray-600 mt-1 whitespace-pre-wrap">{annotation.description}</div>
+                  </div>
+                )}
+              </For>
               {llmManager.getSuggestionsByType().grammar.length === 0 && !loadingState().grammar && (
                 <p class="text-sm text-gray-500">No grammar suggestions</p>
               )}
@@ -148,12 +149,14 @@ export default function Editor() {
               {loadingState().naturalPhrases && <div class="w-4 h-4 border-2 border-gray-300 border-t-amber-500 rounded-full animate-spin"></div>}
             </h3>
             <div class="space-y-2 max-h-32 overflow-y-auto">
-              {llmManager.getSuggestionsByType().naturalPhrases.map((annotation) => (
-                <div class="text-xs p-2 bg-white rounded border border-amber-200">
-                  <div class="font-medium text-amber-700">{annotation.id.split('-')[0]}</div>
-                  <div class="text-gray-600 mt-1 whitespace-pre-wrap">{annotation.description}</div>
-                </div>
-              ))}
+              <For each={llmManager.getSuggestionsByType().naturalPhrases}>
+                {(annotation) => (
+                  <div class="text-xs p-2 bg-white rounded border border-amber-200">
+                    <div class="font-medium text-amber-700">{annotation.id.split('-')[0]}</div>
+                    <div class="text-gray-600 mt-1 whitespace-pre-wrap">{annotation.description}</div>
+                  </div>
+                )}
+              </For>
               {llmManager.getSuggestionsByType().naturalPhrases.length === 0 && !loadingState().naturalPhrases && (
                 <p class="text-sm text-gray-500">No natural phrase suggestions</p>
               )}
@@ -168,37 +171,19 @@ export default function Editor() {
               {loadingState().englishWords && <div class="w-4 h-4 border-2 border-gray-300 border-t-blue-500 rounded-full animate-spin"></div>}
             </h3>
             <div class="space-y-2 max-h-32 overflow-y-auto">
-              {llmManager.getSuggestionsByType().englishWords.map((annotation) => (
-                <div class="text-xs p-2 bg-white rounded border border-blue-200">
-                  <div class="font-medium text-blue-700">{annotation.id.split('-')[0]}</div>
-                  <div class="text-gray-600 mt-1 whitespace-pre-wrap">{annotation.description}</div>
-                </div>
-              ))}
+              <For each={llmManager.getSuggestionsByType().englishWords}>
+                {(annotation) => (
+                  <div class="text-xs p-2 bg-white rounded border border-blue-200">
+                    <div class="font-medium text-blue-700">{annotation.id.split('-')[0]}</div>
+                    <div class="text-gray-600 mt-1 whitespace-pre-wrap">{annotation.description}</div>
+                  </div>
+                )}
+              </For>
               {llmManager.getSuggestionsByType().englishWords.length === 0 && !loadingState().englishWords && (
                 <p class="text-sm text-gray-500">No English word suggestions</p>
               )}
             </div>
           </div>
-
-          {/* Hovered annotation details */}
-          {hoveredAnnotation() && (
-            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <h3 class="text-sm font-medium text-blue-700 mb-2">Hovered Annotation</h3>
-              <div class="space-y-2 text-sm">
-                <div class="flex items-center gap-2">
-                  <div
-                    class="w-4 h-4 rounded border"
-                    style={{ "background-color": hoveredAnnotation()!.color }}
-                  />
-                  <span class="font-medium">{hoveredAnnotation()!.id}</span>
-                </div>
-                <div class="text-gray-700">{hoveredAnnotation()!.description}</div>
-                <div class="text-gray-600">
-                  Position: P{hoveredAnnotation()!.startParagraph}:{hoveredAnnotation()!.startOffset}-{hoveredAnnotation()!.endOffset}
-                </div>
-              </div>
-            </div>
-          )}
         </div>
       </div>
     </div>

@@ -1,4 +1,5 @@
 import { createSignal } from 'solid-js';
+import { createAtom } from '~/utils/signal';
 import { LLMService, type LLMBatchResponse, type LLMSuggestion } from '~/services/llm';
 import type { ExternalAnnotation } from './TextEditorAnnotations';
 
@@ -16,7 +17,7 @@ export interface LoadingState {
 
 export class LLMSuggestionManager {
   private llmService: LLMService;
-  private currentSuggestions: ExternalAnnotation[] = [];
+  private currentSuggestions = createAtom<ExternalAnnotation[]>([]);
   private options: LLMSuggestionManagerOptions;
 
   // Color mapping for different suggestion types
@@ -128,7 +129,7 @@ export class LLMSuggestionManager {
    * Update annotations and notify subscribers
    */
   private updateAnnotations(annotations: ExternalAnnotation[]): void {
-    this.currentSuggestions = annotations;
+    this.currentSuggestions.set(annotations);
     if (this.options.onAnnotationsUpdate) {
       this.options.onAnnotationsUpdate(annotations);
     }
@@ -147,7 +148,7 @@ export class LLMSuggestionManager {
    * Get current suggestions
    */
   getCurrentSuggestions(): ExternalAnnotation[] {
-    return this.currentSuggestions;
+    return this.currentSuggestions();
   }
 
   /**
@@ -165,10 +166,11 @@ export class LLMSuggestionManager {
     naturalPhrases: ExternalAnnotation[];
     englishWords: ExternalAnnotation[]
   } {
+    const suggestions = this.currentSuggestions();
     return {
-      grammar: this.currentSuggestions.filter(s => s.id.startsWith('grammar-')),
-      naturalPhrases: this.currentSuggestions.filter(s => s.id.startsWith('natural-phrases-')),
-      englishWords: this.currentSuggestions.filter(s => s.id.startsWith('english-words-'))
+      grammar: suggestions.filter(s => s.id.startsWith('grammar-')),
+      naturalPhrases: suggestions.filter(s => s.id.startsWith('natural-phrases-')),
+      englishWords: suggestions.filter(s => s.id.startsWith('english-words-'))
     };
   }
 }

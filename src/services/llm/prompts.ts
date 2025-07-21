@@ -22,13 +22,15 @@ Responde SOLO con un JSON válido en este formato:
     {
       "originalText": "texto con error",
       "suggestedText": "texto corregido",
-      "explanation": "Brief English explanation of the grammatical rule",
+      "explanation": "Brief English explanation of the grammatical rule, no más de 10 palabras",
       "contextBefore": "palabras antes del",
       "contextAfter": "del error aquí",
       "confidence": 0.9
     }
   ]
 }
+
+Si no encuentras errores gramaticales, devuelve una lista vacía: {"suggestions": []}. NO crees sugerencias que digan que no hay errores.
 
 Texto a analizar:`;
 
@@ -53,13 +55,15 @@ Responde SOLO con un JSON válido en este formato (máximo 2 sugerencias):
     {
       "originalText": "frase original",
       "suggestedText": "frase más natural",
-      "explanation": "English explanation of why this is more natural in Latin American Spanish",
+      "explanation": "English explanation of why this is more natural in Latin American Spanish, no más de 10 palabras",
       "contextBefore": "palabras antes de",
       "contextAfter": "de la frase",
       "confidence": 0.8
     }
   ]
 }
+
+Si no encuentras frases que puedan ser más naturales, devuelve una lista vacía: {"suggestions": []}. NO crees sugerencias que digan que no hay frases para mejorar.
 
 Texto a analizar:`;
 
@@ -77,13 +81,15 @@ Responde SOLO con un JSON válido en este formato:
     {
       "originalText": "english word",
       "suggestedText": "palabra en español",
-      "explanation": "English explanation of the translation choice",
+      "explanation": "English explanation of the translation choice, no más de 10 palabras",
       "contextBefore": "words before the",
       "contextAfter": "word in text",
       "confidence": 0.9
     }
   ]
 }
+
+Si no encuentras palabras en inglés para reemplazar, devuelve una lista vacía: {"suggestions": []}. NO crees sugerencias que digan que no hay palabras en inglés.
 
 Texto a analizar:`;
 
