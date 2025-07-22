@@ -1,10 +1,12 @@
 import Anthropic from '@anthropic-ai/sdk';
-import { buildPrompt } from './prompts';
+import { buildPrompt, buildCombinedPrompt } from './prompts';
 import type {
   LLMSuggestionRequest,
   LLMSuggestionResponse,
   LLMBatchRequest,
   LLMBatchResponse,
+  LLMCombinedRequest,
+  LLMCombinedResponse,
   SuggestionType,
   RawLLMSuggestion,
   LLMSuggestion
@@ -189,57 +191,140 @@ export class LLMService {
   }
 
   /**
-   * Get all three types of suggestions in parallel
+   * Get all suggestion types in a single combined request
+   */
+  async getCombinedSuggestions(request: LLMCombinedRequest): Promise<LLMCombinedResponse> {
+    const startTime = Date.now();
+
+    try {
+      const prompt = buildCombinedPrompt(request.text);
+
+      const response = await this.anthropic.messages.create({
+        model: this.model,
+        max_tokens: 3000, // Increased for combined response
+        temperature: 0.3,
+        messages: [
+          {
+            role: 'user',
+            content: prompt
+          }
+        ]
+      });
+
+      const content = response.content[0];
+      if (content.type !== 'text') {
+        throw new Error('Unexpected response type from Claude');
+      }
+
+      // Parse the JSON response
+      const jsonMatch = content.text.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) {
+        throw new Error('No valid JSON found in Claude response');
+      }
+
+      const parsedResponse = JSON.parse(jsonMatch[0]);
+
+      // Process raw suggestions - they now include type information
+      const rawSuggestions: RawLLMSuggestion[] = parsedResponse.suggestions.map((suggestion: any) => ({
+        originalText: suggestion.originalText,
+        suggestedText: suggestion.suggestedText,
+        explanation: suggestion.explanation,
+        contextBefore: suggestion.contextBefore || '',
+        contextAfter: suggestion.contextAfter || '',
+        confidence: suggestion.confidence || 0.7,
+        type: suggestion.type // Type is now included in the response
+      }));
+
+      const suggestions: LLMSuggestion[] = rawSuggestions
+        .map((rawSuggestion): LLMSuggestion | null => {
+          if (!rawSuggestion.type) {
+            console.warn('Missing type for suggestion:', rawSuggestion.originalText);
+            return null;
+          }
+
+          const offsets = this.findExactOffsets(
+            request.text,
+            rawSuggestion.originalText,
+            rawSuggestion.contextBefore,
+            rawSuggestion.contextAfter
+          );
+
+          if (!offsets) {
+            console.warn(`Could not find exact offsets for suggestion: "${rawSuggestion.originalText}"`);
+            // Return a suggestion with placeholder offsets
+            return {
+              startOffset: 0,
+              endOffset: rawSuggestion.originalText.length,
+              originalText: rawSuggestion.originalText,
+              suggestedText: rawSuggestion.suggestedText,
+              explanation: rawSuggestion.explanation,
+              contextBefore: rawSuggestion.contextBefore,
+              contextAfter: rawSuggestion.contextAfter,
+              confidence: rawSuggestion.confidence * 0.5, // Reduce confidence due to positioning uncertainty
+              type: rawSuggestion.type
+            };
+          }
+
+          return {
+            startOffset: offsets.startOffset,
+            endOffset: offsets.endOffset,
+            originalText: rawSuggestion.originalText,
+            suggestedText: rawSuggestion.suggestedText,
+            explanation: rawSuggestion.explanation,
+            contextBefore: rawSuggestion.contextBefore,
+            contextAfter: rawSuggestion.contextAfter,
+            confidence: rawSuggestion.confidence,
+            type: rawSuggestion.type
+          };
+        })
+        .filter((suggestion): suggestion is LLMSuggestion => suggestion !== null);
+
+      return {
+        suggestions,
+        processingTime: Date.now() - startTime
+      };
+
+    } catch (error) {
+      console.error('LLM Service error for combined suggestions:', error);
+      return {
+        suggestions: [],
+        error: error instanceof Error ? error.message : 'Unknown error',
+        processingTime: Date.now() - startTime
+      };
+    }
+  }
+
+  /**
+   * Get all three types of suggestions using combined method (legacy interface)
    */
   async getBatchSuggestions(batchRequest: LLMBatchRequest): Promise<LLMBatchResponse> {
-    const requests: Promise<LLMSuggestionResponse>[] = [];
-    const types: SuggestionType[] = [];
-
-    // Build parallel requests based on what's requested
-    if (batchRequest.requests.grammar) {
-      requests.push(this.getSuggestions({
-        text: batchRequest.text,
-        type: 'grammar',
-        targetLanguage: 'colombian-spanish'
-      }));
-      types.push('grammar');
-    }
-
-    if (batchRequest.requests.naturalPhrases) {
-      requests.push(this.getSuggestions({
-        text: batchRequest.text,
-        type: 'natural-phrases',
-        targetLanguage: 'colombian-spanish'
-      }));
-      types.push('natural-phrases');
-    }
-
-    if (batchRequest.requests.englishWords) {
-      requests.push(this.getSuggestions({
-        text: batchRequest.text,
-        type: 'english-words',
-        targetLanguage: 'colombian-spanish'
-      }));
-      types.push('english-words');
-    }
-
-    // Execute all requests in parallel
-    const responses = await Promise.all(requests);
-
-    // Map responses back to their types
-    const result: Partial<LLMBatchResponse> = {};
-    responses.forEach((response, index) => {
-      const type = types[index];
-      if (type === 'grammar') result.grammar = response;
-      else if (type === 'natural-phrases') result.naturalPhrases = response;
-      else if (type === 'english-words') result.englishWords = response;
+    // Use the new combined method internally
+    const combinedResponse = await this.getCombinedSuggestions({
+      text: batchRequest.text,
+      targetLanguage: 'colombian-spanish'
     });
 
-    // Fill in empty responses for non-requested types
+    // Separate suggestions by type for backward compatibility
+    const grammarSuggestions = combinedResponse.suggestions.filter(s => s.type === 'grammar');
+    const naturalPhrasesSuggestions = combinedResponse.suggestions.filter(s => s.type === 'natural-phrases');
+    const englishWordsSuggestions = combinedResponse.suggestions.filter(s => s.type === 'english-words');
+
     return {
-      grammar: result.grammar || { suggestions: [] },
-      naturalPhrases: result.naturalPhrases || { suggestions: [] },
-      englishWords: result.englishWords || { suggestions: [] }
+      grammar: {
+        suggestions: grammarSuggestions,
+        processingTime: combinedResponse.processingTime,
+        error: combinedResponse.error
+      },
+      naturalPhrases: {
+        suggestions: naturalPhrasesSuggestions,
+        processingTime: combinedResponse.processingTime,
+        error: combinedResponse.error
+      },
+      englishWords: {
+        suggestions: englishWordsSuggestions,
+        processingTime: combinedResponse.processingTime,
+        error: combinedResponse.error
+      }
     };
   }
 

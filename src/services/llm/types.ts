@@ -28,6 +28,7 @@ export interface RawLLMSuggestion {
   contextBefore: string;
   contextAfter: string;
   confidence: number;
+  type?: SuggestionType; // Optional for backwards compatibility, required for combined requests
 }
 
 export interface LLMSuggestionResponse {
@@ -36,6 +37,20 @@ export interface LLMSuggestionResponse {
   error?: string;
 }
 
+// New combined request interface
+export interface LLMCombinedRequest {
+  text: string;
+  targetLanguage: 'colombian-spanish';
+}
+
+// New combined response interface
+export interface LLMCombinedResponse {
+  suggestions: LLMSuggestion[];
+  processingTime?: number;
+  error?: string;
+}
+
+// Legacy batch interfaces for backwards compatibility
 export interface LLMBatchRequest {
   text: string;
   requests: {
