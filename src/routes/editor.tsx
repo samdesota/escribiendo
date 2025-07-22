@@ -1,5 +1,6 @@
 import { createSignal, onMount, For } from 'solid-js';
 import { SimpleTextEditor, type ExternalAnnotation, LLMSuggestionManager, type LoadingState } from '~/modules/text-editor';
+import { TranslationChatInterface } from '~/modules/translation-chat';
 import DebugPanel from '~/components/DebugPanel';
 
 const STORAGE_KEY = 'editor-content';
@@ -109,20 +110,31 @@ export default function Editor() {
           </div>
         </div>
 
-        {/* Editor container */}
-        <div class="flex-1 pt-8 px-8 bg-white">
-          <SimpleTextEditor
-            ref={setEditorRef}
-            placeholder="Start writing..."
-            initialContent={initialContent()}
-            onContentChange={handleContentChange}
-            annotations={annotations()}
-            onAnnotationHover={handleAnnotationHover}
-            onSuggestionTrigger={handleSuggestionTrigger}
-            hideControls={true}
-            hideDebug={true}
-            class="h-full"
-          />
+        {/* Editor and Translation Assistant container */}
+        <div class="flex-1 flex flex-col bg-white">
+          {/* Main text editor */}
+          <div class="flex-1 pt-8 px-8">
+            <SimpleTextEditor
+              ref={setEditorRef}
+              placeholder="Start writing..."
+              initialContent={initialContent()}
+              onContentChange={handleContentChange}
+              annotations={annotations()}
+              onAnnotationHover={handleAnnotationHover}
+              onSuggestionTrigger={handleSuggestionTrigger}
+              hideControls={true}
+              hideDebug={true}
+              class="h-full"
+            />
+          </div>
+
+          {/* Translation Assistant */}
+          <div class="border-t border-gray-200 p-4">
+            <TranslationChatInterface
+              editorContent={content()}
+              class="h-64"
+            />
+          </div>
         </div>
       </div>
 
