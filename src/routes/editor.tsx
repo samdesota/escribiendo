@@ -81,7 +81,6 @@ export default function Editor() {
 
   return (
     <div class="h-screen flex bg-gray-50">
-      <DebugPanel />
       {/* Main editor area */}
       <div class="flex-1 flex flex-col">
         {/* Header */}
@@ -129,10 +128,10 @@ export default function Editor() {
           </div>
 
           {/* Translation Assistant */}
-          <div class="border-t border-gray-200 p-4">
+          <div class="flex flex-col border-gray-200 p-4 flex-1">
             <TranslationChatInterface
               editorContent={content()}
-              class="h-64"
+              class="flex-1"
             />
           </div>
         </div>

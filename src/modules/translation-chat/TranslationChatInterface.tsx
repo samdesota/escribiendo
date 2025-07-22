@@ -111,7 +111,7 @@ const TranslationChatInterface: Component<TranslationChatInterfaceProps> = (prop
       {/* Messages Container */}
       <div
         ref={messagesContainerRef}
-        class="flex-1 overflow-y-auto p-3 space-y-2 min-h-[200px] max-h-[300px]"
+        class="flex-1 overflow-y-auto p-3 space-y-2 min-h-[200px]"
       >
         <For each={chatState().messages}>
           {(message) => <ChatMessage message={message} />}
