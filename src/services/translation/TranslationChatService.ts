@@ -1,6 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { buildTranslationPrompt } from './prompts';
-import type { TranslationRequest, TranslationResponse, ChatMessage } from './types';
+import type { TranslationRequest, TranslationResponse, ChatMessage, StreamingTranslationResponse } from './types';
 
 export class TranslationChatService {
   private anthropic: Anthropic;
@@ -56,6 +56,60 @@ export class TranslationChatService {
         error: error instanceof Error ? error.message : 'Unknown error',
         processingTime: Date.now() - startTime
       };
+    }
+  }
+
+  /**
+   * Send a streaming translation request with real-time text updates
+   */
+  async getTranslationStreaming(
+    request: TranslationRequest,
+    callbacks: StreamingTranslationResponse
+  ): Promise<void> {
+    const startTime = Date.now();
+
+    try {
+      // Build the prompt with context
+      const prompt = buildTranslationPrompt(
+        request.message,
+        request.editorContext,
+        request.chatHistory
+      );
+
+      const stream = await this.anthropic.messages.stream({
+        model: this.model,
+        max_tokens: 1000,
+        temperature: 0.3,
+        messages: [
+          {
+            role: 'user',
+            content: prompt
+          }
+        ]
+      });
+
+      let fullMessage = '';
+
+      // Handle streaming text chunks
+      stream.on('text', (text: string) => {
+        fullMessage += text;
+        callbacks.onTextChunk(text);
+      });
+
+      // Handle completion
+      stream.on('end', () => {
+        callbacks.onComplete(fullMessage.trim());
+      });
+
+      // Handle errors
+      stream.on('error', (error: any) => {
+        console.error('Translation streaming error:', error);
+        callbacks.onError(error instanceof Error ? error.message : 'Unknown streaming error');
+      });
+
+    } catch (error) {
+      console.error('Translation service error:', error);
+      callbacks.onError(error instanceof Error ? error.message : 'Unknown error');
     }
   }
 

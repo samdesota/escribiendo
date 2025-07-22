@@ -19,6 +19,12 @@ export interface TranslationResponse {
   error?: string;
 }
 
+export interface StreamingTranslationResponse {
+  onTextChunk: (chunk: string) => void;
+  onComplete: (finalMessage: string) => void;
+  onError: (error: string) => void;
+}
+
 export interface ChatState {
   messages: ChatMessage[];
   isLoading: boolean;
