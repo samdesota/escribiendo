@@ -197,7 +197,7 @@ export class LLMService {
     const startTime = Date.now();
 
     try {
-      const prompt = buildCombinedPrompt(request.text);
+      const prompt = buildCombinedPrompt(request.text, request.previousSuggestions);
 
       const response = await this.anthropic.messages.create({
         model: this.model,
@@ -301,7 +301,7 @@ export class LLMService {
     // Use the new combined method internally
     const combinedResponse = await this.getCombinedSuggestions({
       text: batchRequest.text,
-      targetLanguage: 'colombian-spanish'
+      targetLanguage: 'spanish-spain'
     });
 
     // Separate suggestions by type for backward compatibility

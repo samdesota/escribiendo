@@ -1,11 +1,11 @@
-// LLM Service Types for Colombian Spanish Language Learning
+// LLM Service Types for Spanish from Spain Language Learning
 
 export type SuggestionType = 'grammar' | 'natural-phrases' | 'english-words';
 
 export interface LLMSuggestionRequest {
   text: string;
   type: SuggestionType;
-  targetLanguage: 'colombian-spanish';
+  targetLanguage: 'spanish-spain';
 }
 
 export interface LLMSuggestion {
@@ -40,7 +40,8 @@ export interface LLMSuggestionResponse {
 // New combined request interface
 export interface LLMCombinedRequest {
   text: string;
-  targetLanguage: 'colombian-spanish';
+  targetLanguage: 'spanish-spain';
+  previousSuggestions?: LLMSuggestion[]; // Include previous suggestions to maintain stability
 }
 
 // New combined response interface

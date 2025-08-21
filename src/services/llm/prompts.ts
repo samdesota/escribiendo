@@ -1,6 +1,6 @@
-// Spanish Prompts for Latin American Spanish Language Learning
+// Spanish Prompts for Spanish from Spain Language Learning
 
-export const GRAMMAR_PROMPT = `Eres un experto en gramática del español latinoamericano que ayuda a estudiantes de español como segunda lengua. Analiza el siguiente texto y identifica errores gramaticales, incluyendo:
+export const GRAMMAR_PROMPT = `Eres un experto en gramática del español peninsular que ayuda a estudiantes de español como segunda lengua. Analiza el siguiente texto y identifica errores gramaticales, incluyendo:
 
 - Errores de conjugación verbal
 - Concordancia de género y número
@@ -34,11 +34,11 @@ Si no encuentras errores gramaticales, devuelve una lista vacía: {"suggestions"
 
 Texto a analizar:`;
 
-export const NATURAL_PHRASES_PROMPT = `Eres un experto en español latinoamericano que ayuda a estudiantes de inglés a sonar más naturales y auténticos. Analiza el siguiente texto y sugiere hasta 2 alternativas más naturales, enfocándote en:
+export const NATURAL_PHRASES_PROMPT = `Eres un experto en español peninsular que ayuda a estudiantes de inglés a sonar más naturales y auténticos. Analiza el siguiente texto y sugiere hasta 2 alternativas más naturales, enfocándote en:
 
-- Expresiones idiomáticas comunes en español latinoamericano
+- Expresiones idiomáticas comunes en español de España
 - Frases que suenan más naturales para hablantes nativos
-- Modismos ampliamente usados en Latinoamérica
+- Modismos ampliamente usados en España
 - Solo cambios significativos que realmente mejoren la naturalidad
 
 Evita sugerencias demasiado específicas o cambios menores. Enfócate en frases que claramente suenan no naturales o muy formales para un hablante de inglés.
@@ -55,7 +55,7 @@ Responde SOLO con un JSON válido en este formato (máximo 2 sugerencias):
     {
       "originalText": "frase original",
       "suggestedText": "frase más natural",
-      "explanation": "English explanation of why this is more natural in Latin American Spanish, no más de 10 palabras",
+      "explanation": "English explanation of why this is more natural in Spanish from Spain, no más de 10 palabras",
       "contextBefore": "palabras antes de",
       "contextAfter": "de la frase",
       "confidence": 0.8
@@ -67,11 +67,11 @@ Si no encuentras frases que puedan ser más naturales, devuelve una lista vacía
 
 Texto a analizar:`;
 
-export const ENGLISH_WORDS_PROMPT = `Eres un experto en español latinoamericano que ayuda a estudiantes a reemplazar palabras en inglés por sus equivalentes en español. Identifica palabras en inglés en el texto (excluyendo nombres propios, títulos, y palabras entre comillas) y sugiere traducciones apropiadas para español latinoamericano.
+export const ENGLISH_WORDS_PROMPT = `Eres un experto en español peninsular que ayuda a estudiantes a reemplazar palabras en inglés por sus equivalentes en español. Identifica palabras en inglés en el texto (excluyendo nombres propios, títulos, y palabras entre comillas) y sugiere traducciones apropiadas para español de España.
 
 Para cada palabra en inglés encontrada, proporciona:
 1. La palabra en inglés
-2. La traducción más apropiada en español latinoamericano
+2. La traducción más apropiada en español de España
 3. Una explicación en inglés si hay diferencias regionales
 4. Contexto antes y después de la palabra (2-4 palabras)
 
@@ -95,6 +95,10 @@ Texto a analizar:`;
 
 export const COMBINED_ANALYSIS_PROMPT = `Eres un experto en español latinoamericano que ayuda a estudiantes de inglés a mejorar su escritura. Analiza el siguiente texto y proporciona sugerencias en tres categorías:
 
+**REGLAS IMPORTANTES:**
+- NO hagas sugerencias para las últimas 3-5 palabras del texto, ya que el usuario puede estar escribiendo todavía
+- Si se proporcionan sugerencias previas, MANTÉN la estabilidad: no cambies sugerencias existentes a menos que el texto haya cambiado significativamente en esa área
+
 1. **GRAMMAR** - Errores gramaticales:
    - Errores de conjugación verbal
    - Concordancia de género y número
@@ -105,9 +109,9 @@ export const COMBINED_ANALYSIS_PROMPT = `Eres un experto en español latinoameri
    - Errores con subjuntivo/indicativo
 
 2. **NATURAL-PHRASES** - Frases más naturales:
-   - Expresiones idiomáticas comunes en español latinoamericano
+   - Expresiones idiomáticas comunes en español de España
    - Frases que suenan más naturales para hablantes nativos
-   - Modismos ampliamente usados en Latinoamérica
+   - Modismos ampliamente usados en España
    - Solo cambios significativos que realmente mejoren la naturalidad
    - Máximo 2 sugerencias de este tipo
 
@@ -137,9 +141,7 @@ Responde SOLO con un JSON válido en este formato:
   ]
 }
 
-Si no encuentras sugerencias en alguna categoría, simplemente no incluyas sugerencias de ese tipo. NO crees sugerencias que digan que no hay errores.
-
-Texto a analizar:`;
+Si no encuentras sugerencias en alguna categoría, simplemente no incluyas sugerencias de ese tipo. NO crees sugerencias que digan que no hay errores.`;
 
 export function buildPrompt(type: 'grammar' | 'natural-phrases' | 'english-words', text: string): string {
   const prompts = {
@@ -151,6 +153,15 @@ export function buildPrompt(type: 'grammar' | 'natural-phrases' | 'english-words
   return prompts[type] + '\n\n' + text;
 }
 
-export function buildCombinedPrompt(text: string): string {
-  return COMBINED_ANALYSIS_PROMPT + '\n\n' + text;
+export function buildCombinedPrompt(text: string, previousSuggestions?: any[]): string {
+  let prompt = COMBINED_ANALYSIS_PROMPT;
+  
+  if (previousSuggestions && previousSuggestions.length > 0) {
+    prompt += '\n\n**SUGERENCIAS PREVIAS (mantén estas si siguen siendo válidas):**\n';
+    prompt += JSON.stringify(previousSuggestions, null, 2);
+    prompt += '\n\n';
+  }
+  
+  prompt += '\n\nTexto a analizar:\n' + text;
+  return prompt;
 }
