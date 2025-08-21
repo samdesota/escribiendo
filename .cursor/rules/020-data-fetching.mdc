@@ -1,0 +1,39 @@
+---
+description: Server-first data fetching for SolidStart routes (query + createAsync)
+globs: src/routes/**/*.{ts,tsx}
+alwaysApply: false
+---
+
+- Use `query` from `@solidjs/router` to define server-only loaders.
+- Include `"use server";` inside the query.
+- Return only serializable values to avoid SSR serialization errors.
+- Export `route.preload = () => yourQuery()` for preloading.
+- In the component, call `createAsync(() => yourQuery())` and wrap with `<Suspense>`.
+
+Example
+```ts
+import { Suspense, For } from "solid-js";
+import { createAsync, query, RouteDefinition, A } from "@solidjs/router";
+import { getNotes } from "~/server/db";
+
+const notesQuery = query(async () => {
+  "use server";
+  return getNotes();
+}, "notes");
+
+export const route = { preload: () => notesQuery() } satisfies RouteDefinition;
+
+export default function Page() {
+  const notes = createAsync(() => notesQuery());
+  return (
+    <main>
+      <Suspense fallback={<div>Loading...</div>}>
+        <ul>
+          <For each={notes()}>{(n) => <li>{n.title}</li>}</For>
+        </ul>
+      </Suspense>
+    </main>
+  );
+}
+```
+

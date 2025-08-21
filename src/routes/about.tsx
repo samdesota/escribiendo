@@ -1,53 +1,38 @@
 import { A } from "@solidjs/router";
-import { createSignal } from "solid-js";
-import Counter from "~/components/Counter";
-import SimpleTextEditor from "~/modules/text-editor/SimpleTextEditor";
-import DebugPanel from "~/components/DebugPanel";
 
 export default function About() {
-  const [content, setContent] = createSignal("");
-
-  const handleContentChange = (newContent: string) => {
-    setContent(newContent);
-  };
-
   return (
     <main class="mx-auto max-w-4xl text-gray-700 p-4">
       <h1 class="text-4xl text-sky-700 font-thin uppercase my-8 text-center">
-        Text Editor Demo
+        Spanish Chat Experiment
       </h1>
 
-      <div class="mb-8">
-        <Counter />
-      </div>
-
       <div class="space-y-6">
-        <DebugPanel />
-
-        <div>
-          <h2 class="text-2xl font-semibold mb-4">Rich Text Editor</h2>
+        <div class="bg-white p-6 rounded-lg shadow-sm border">
+          <h2 class="text-2xl font-semibold mb-4">About This App</h2>
           <p class="text-gray-600 mb-4">
-            This is a custom text editor built with SolidJS. It features:
-            manual event handling, data model separation, undo/redo functionality,
-            and is designed to support future features like annotations and inline widgets.
+            This is an experimental Spanish learning chat application built with SolidJS. 
+            It helps you practice Spanish conversation with AI-powered suggestions.
           </p>
 
-          <SimpleTextEditor
-            initialContent="Welcome to the text editor! Try typing, using Ctrl+Z to undo, and Ctrl+Y to redo. The editor maintains a complete data model of your content."
-            placeholder="Start typing..."
-            onContentChange={handleContentChange}
-            class="mb-4"
-          />
+          <h3 class="text-lg font-semibold mb-3">Features:</h3>
+          <ul class="list-disc list-inside space-y-2 text-gray-600 mb-4">
+            <li><strong>Smart Suggestions:</strong> Press Tab while typing to get Spanish suggestions for your text</li>
+            <li><strong>Natural Conversation:</strong> Chat naturally in Spanish with streaming AI responses</li>
+            <li><strong>Grammar Help:</strong> Press Shift+Enter to discuss grammar and language rules</li>
+            <li><strong>Spain Focus:</strong> All suggestions and corrections use Spanish from Spain (Peninsular Spanish)</li>
+            <li><strong>Multiple Chats:</strong> Create and manage multiple conversation threads</li>
+          </ul>
+
+          <h3 class="text-lg font-semibold mb-3">How to Use:</h3>
+          <ol class="list-decimal list-inside space-y-2 text-gray-600">
+            <li>Type something like "quiero algo con cool socks"</li>
+            <li>Press <kbd class="px-1 py-0.5 bg-gray-100 rounded text-xs">Tab</kbd> to get a Spanish suggestion</li>
+            <li>Press <kbd class="px-1 py-0.5 bg-gray-100 rounded text-xs">Tab</kbd> again to accept or <kbd class="px-1 py-0.5 bg-gray-100 rounded text-xs">Esc</kbd> to cancel</li>
+            <li>Send your message and receive AI responses in Spanish</li>
+            <li>Use <kbd class="px-1 py-0.5 bg-gray-100 rounded text-xs">Shift+Enter</kbd> to ask about grammar</li>
+          </ol>
         </div>
-
-        <div>
-          <h3 class="text-lg font-semibold mb-2">Content Preview</h3>
-          <div class="bg-gray-100 p-4 rounded border">
-            <pre class="whitespace-pre-wrap text-sm">{content()}</pre>
-          </div>
-        </div>
-
-
       </div>
 
       <div class="mt-8 text-center">
@@ -60,11 +45,11 @@ export default function About() {
           >
             SolidJS
           </a>{" "}
-          and styled with UnoCSS
+          and powered by Claude AI
         </p>
         <p>
-          <A href="/" class="text-sky-600 hover:underline">
-            ← Back to Home
+          <A href="/chat" class="text-sky-600 hover:underline">
+            → Start Chatting
           </A>
         </p>
       </div>

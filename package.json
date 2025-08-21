@@ -4,7 +4,10 @@
   "scripts": {
     "dev": "vinxi dev",
     "build": "vinxi build",
-    "start": "vinxi start"
+    "start": "vinxi start",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.57.0",
@@ -12,11 +15,18 @@
     "@solidjs/router": "^0.15.0",
     "@solidjs/start": "^1.1.0",
     "@unocss/reset": "^0.65.1",
+    "dotenv": "^17.2.1",
+    "drizzle-orm": "^0.44.4",
+    "postgres": "^3.4.7",
     "solid-js": "^1.9.5",
     "unocss": "^0.65.1",
     "vinxi": "^0.5.7"
   },
   "engines": {
     "node": ">=22"
+  },
+  "devDependencies": {
+    "@types/pg": "^8.15.5",
+    "drizzle-kit": "^0.31.4"
   }
 }

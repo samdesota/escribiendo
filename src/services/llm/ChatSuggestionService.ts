@@ -1,5 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk';
-import { buildChatSuggestionPrompt, buildSideChatPrompt, buildRegularChatPrompt } from './chatPrompts';
+import { buildChatSuggestionPrompt, buildSideChatPrompt, buildRegularChatPrompt, buildTranslationPrompt, buildAssistantQuestionsPrompt, buildUserQuestionsPrompt } from './chatPrompts';
 
 export interface ChatSuggestionRequest {
   userInput: string;
@@ -39,6 +39,25 @@ export interface StreamingChatCallbacks {
   onTextChunk: (chunk: string) => void;
   onComplete: (finalText: string) => void;
   onError: (error: string) => void;
+}
+
+export interface TranslationRequest {
+  selectedText: string;
+  contextMessage: string;
+  chatContext?: string;
+}
+
+export interface TranslationResponse {
+  translation: string;
+  processingTime?: number;
+  error?: string;
+}
+
+export interface ConversationStartersResponse {
+  assistantQuestions: string[];
+  userQuestions: string[];
+  processingTime?: number;
+  error?: string;
 }
 
 export class ChatSuggestionService {
@@ -231,6 +250,132 @@ export class ChatSuggestionService {
       console.error('Side chat service error:', error);
       return {
         response: 'Sorry, I encountered an error. Please try asking your question again.',
+        error: error instanceof Error ? error.message : 'Unknown error',
+        processingTime: Date.now() - startTime
+      };
+    }
+  }
+
+  /**
+   * Get translation for selected text
+   */
+  async getTranslation(request: TranslationRequest): Promise<TranslationResponse> {
+    const startTime = Date.now();
+
+    try {
+      const prompt = buildTranslationPrompt(
+        request.selectedText,
+        request.contextMessage,
+        request.chatContext || ''
+      );
+
+      const response = await this.anthropic.messages.create({
+        model: this.model,
+        max_tokens: 200,
+        temperature: 0.2,
+        messages: [
+          {
+            role: 'user',
+            content: prompt
+          }
+        ]
+      });
+
+      const content = response.content[0];
+      if (content.type !== 'text') {
+        throw new Error('Unexpected response type from Claude');
+      }
+
+      return {
+        translation: content.text.trim(),
+        processingTime: Date.now() - startTime
+      };
+
+    } catch (error) {
+      console.error('Translation service error:', error);
+      return {
+        translation: 'Translation error',
+        error: error instanceof Error ? error.message : 'Unknown error',
+        processingTime: Date.now() - startTime
+      };
+    }
+  }
+
+  /**
+   * Generate conversation starters for new chats (both assistant and user questions)
+   */
+  async getConversationStarters(
+    previousAssistantQuestions: string[] = [],
+    previousUserQuestions: string[] = []
+  ): Promise<ConversationStartersResponse> {
+    const startTime = Date.now();
+
+    try {
+      // Generate both types of questions in parallel
+      const [assistantResponse, userResponse] = await Promise.all([
+        this.anthropic.messages.create({
+          model: this.model,
+          max_tokens: 200,
+          temperature: 0.8,
+          messages: [{ role: 'user', content: buildAssistantQuestionsPrompt(previousAssistantQuestions) }]
+        }),
+        this.anthropic.messages.create({
+          model: this.model,
+          max_tokens: 200,
+          temperature: 0.8,
+          messages: [{ role: 'user', content: buildUserQuestionsPrompt(previousUserQuestions) }]
+        })
+      ]);
+
+      // Process assistant questions
+      const assistantContent = assistantResponse.content[0];
+      const userContent = userResponse.content[0];
+      
+      if (assistantContent.type !== 'text' || userContent.type !== 'text') {
+        throw new Error('Unexpected response type from Claude');
+      }
+
+      // Parse assistant questions
+      const assistantQuestions = assistantContent.text
+        .trim()
+        .split('\n')
+        .filter(line => line.trim().length > 0)
+        .map(line => line.trim())
+        .slice(0, 3);
+
+      // Parse user questions
+      const userQuestions = userContent.text
+        .trim()
+        .split('\n')
+        .filter(line => line.trim().length > 0)
+        .map(line => line.trim())
+        .slice(0, 3);
+
+      return {
+        assistantQuestions,
+        userQuestions,
+        processingTime: Date.now() - startTime
+      };
+
+    } catch (error) {
+      console.error('Conversation starters service error:', error);
+      
+      // Fallback to static conversation starters
+      const fallbackAssistantQuestions = [
+        "Cuéntame sobre tu día típico",
+        "¿Qué es lo que más te gusta de tu ciudad?",
+        "Háblame de tu comida favorita"
+      ];
+
+      const fallbackUserQuestions = [
+        "¿Cuál es la tradición española más importante?",
+        "¿Qué consejos tienes para mejorar mi pronunciación?",
+        "¿Cómo es la vida en España comparada con otros países?"
+      ];
+
+      return {
+        assistantQuestions: fallbackAssistantQuestions,
+        userQuestions: fallbackUserQuestions,
         error: error instanceof Error ? error.message : 'Unknown error',
         processingTime: Date.now() - startTime
       };

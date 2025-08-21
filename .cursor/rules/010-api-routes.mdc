@@ -1,0 +1,61 @@
+---
+description: SolidStart API routes conventions (use APIEvent, JSON-only responses)
+globs: src/routes/api/**/*.{ts,tsx}
+alwaysApply: false
+---
+
+- Use files under `src/routes/api/**` with `.ts` or `.tsx` (no JSX in handlers).
+- Export HTTP method handlers (`GET`, `POST`, `PATCH`, `DELETE`).
+- Use `APIEvent` signature. Access body via `event.request` and params via `event.params`.
+- Always return `Response` with proper status and headers.
+- Set `content-type: application/json` for JSON responses.
+- Serialize only plain JSON values (no functions, class instances, Symbols, etc.).
+- Put shared DB logic in `~/server/db` helpers; avoid duplicating queries in route files.
+
+Example collection route
+```ts
+// src/routes/api/items/index.ts
+import type { APIEvent } from "@solidjs/start/server";
+import { listItems, createItem } from "~/server/db";
+
+export const GET = async (_event: APIEvent) => {
+  const items = await listItems();
+  return new Response(JSON.stringify(items), {
+    headers: { "content-type": "application/json" },
+  });
+};
+
+export const POST = async (event: APIEvent) => {
+  const payload = await event.request.json();
+  const created = await createItem(payload);
+  return new Response(JSON.stringify(created), {
+    status: 201,
+    headers: { "content-type": "application/json" },
+  });
+};
+```
+
+Example dynamic route
+```ts
+// src/routes/api/items/[id].ts
+import type { APIEvent } from "@solidjs/start/server";
+import { getItem, updateItem } from "~/server/db";
+
+export const GET = async ({ params }: APIEvent) => {
+  const item = await getItem(params.id!);
+  if (!item) return new Response("Not Found", { status: 404 });
+  return new Response(JSON.stringify(item), {
+    headers: { "content-type": "application/json" },
+  });
+};
+
+export const PATCH = async ({ params, request }: APIEvent) => {
+  const payload = await request.json();
+  const updated = await updateItem(params.id!, payload);
+  if (!updated) return new Response("Not Found", { status: 404 });
+  return new Response(JSON.stringify(updated), {
+    headers: { "content-type": "application/json" },
+  });
+};
+```
+

@@ -82,3 +82,83 @@ export function buildSideChatPrompt(
     .replace('{{SPANISH_SUGGESTION}}', spanishSuggestion)
     .replace('{{STUDENT_MESSAGE}}', studentMessage);
 }
+
+export const TRANSLATION_PROMPT = `You are a Spanish-English translation expert. The user has selected a specific piece of Spanish text and wants a brief, accurate English translation.
+
+**IMPORTANT RULES:**
+1. Provide ONLY a brief, natural English translation - no explanations
+2. Focus on the most natural way to express this in English
+3. Keep translations concise and clear
+4. Consider the context provided to ensure accurate translation
+5. Respond with ONLY the English translation - no quotes, no additional text
+
+**Context from the conversation:** {{CHAT_CONTEXT}}
+**Full message containing the selected text:** {{CONTEXT_MESSAGE}}
+**Selected Spanish text to translate:** {{SELECTED_TEXT}}
+
+Provide the English translation:`;
+
+export const ASSISTANT_QUESTIONS_PROMPT = `You are a Spanish tutor helping students practice conversational Spanish. Generate 3 questions that YOU (the assistant) will ask the STUDENT to get them talking about themselves. These should be engaging personal questions that encourage the student to share and practice speaking Spanish.
+
+**REQUIREMENTS:**
+1. Generate exactly 3 questions
+2. Each should be a complete question in Spanish from Spain (Peninsular Spanish)
+3. Questions should ask the student about themselves - their life, experiences, preferences, etc.
+4. Use phrases like "Cuéntame sobre...", "¿Qué opinas de...?", "Háblame de...", etc.
+5. Keep them at an intermediate level - engaging but not too complex
+6. Return ONLY the 3 questions, one per line, without numbers or bullets
+
+**Examples:**
+Cuéntame sobre tu día típico
+¿Qué es lo que más te gusta de tu ciudad?
+Háblame de tu comida favorita
+
+Generate 3 new assistant questions:`;
+
+export const USER_QUESTIONS_PROMPT = `You are a Spanish tutor helping students practice conversational Spanish. Generate 3 questions that the STUDENT can ask YOU (the assistant). These should be questions about Spanish culture, language, or general topics that would be interesting for a Spanish learner to ask their tutor.
+
+**REQUIREMENTS:**
+1. Generate exactly 3 questions
+2. Each should be a complete question in Spanish from Spain (Peninsular Spanish)
+3. Questions should be things a student might ask their Spanish tutor
+4. Topics can include: Spanish culture, language learning tips, life in Spain, traditions, etc.
+5. Keep them at an intermediate level - not too basic, not too advanced
+6. Return ONLY the 3 questions, one per line, without numbers or bullets
+
+**Examples:**
+¿Cuál es la tradición española más importante?
+¿Qué consejos tienes para mejorar mi pronunciación?
+¿Cómo es la vida en España comparada con otros países?
+
+Generate 3 new user questions:`;
+
+export function buildTranslationPrompt(
+  selectedText: string,
+  contextMessage: string,
+  chatContext: string = ''
+): string {
+  return TRANSLATION_PROMPT
+    .replace('{{SELECTED_TEXT}}', selectedText)
+    .replace('{{CONTEXT_MESSAGE}}', contextMessage)
+    .replace('{{CHAT_CONTEXT}}', chatContext);
+}
+
+export function buildAssistantQuestionsPrompt(previousQuestions: string[] = []): string {
+  if (previousQuestions.length === 0) {
+    return ASSISTANT_QUESTIONS_PROMPT;
+  }
+  
+  const previousQuestionsText = previousQuestions.map(q => `- ${q}`).join('\n');
+  
+  return ASSISTANT_QUESTIONS_PROMPT + `\n\n**AVOID THESE PREVIOUS QUESTIONS:**\n${previousQuestionsText}\n\nMake sure your new questions are completely different from the ones listed above:`;
+}
+
+export function buildUserQuestionsPrompt(previousQuestions: string[] = []): string {
+  if (previousQuestions.length === 0) {
+    return USER_QUESTIONS_PROMPT;
+  }
+  
+  const previousQuestionsText = previousQuestions.map(q => `- ${q}`).join('\n');
+  
+  return USER_QUESTIONS_PROMPT + `\n\n**AVOID THESE PREVIOUS QUESTIONS:**\n${previousQuestionsText}\n\nMake sure your new questions are completely different from the ones listed above:`;
+}
