@@ -1,7 +1,13 @@
-import { useNavigate } from '@solidjs/router';
+import { useNavigate, createAsync, type RouteDefinition } from '@solidjs/router';
+import { Suspense } from 'solid-js';
+import { chatsQuery } from '~/lib/queries';
+import ChatSidebar, { type Chat } from '~/components/ChatSidebar';
+
+export const route = { preload: () => chatsQuery() } satisfies RouteDefinition;
 
 export default function ChatIndex() {
   const navigate = useNavigate();
+  const chats = createAsync(() => chatsQuery());
 
   const createNewChat = () => {
     // Generate a new chat ID and navigate to it
@@ -11,24 +17,24 @@ export default function ChatIndex() {
 
   return (
     <div class="h-screen flex bg-gray-50">
-      {/* Sidebar placeholder */}
-      <div class="w-80 bg-white border-r border-gray-200 flex flex-col">
-        <div class="p-4 border-b border-gray-200">
-          <h1 class="text-lg font-semibold text-gray-900">Chat Experiment</h1>
-          <button
-            onClick={createNewChat}
-            class="mt-2 w-full px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
-          >
-            + New Chat
-          </button>
-        </div>
-        <div class="flex-1 flex items-center justify-center text-gray-500">
-          <div class="text-center">
-            <p class="text-sm">No chats yet</p>
-            <p class="text-xs mt-1">Create a new chat to get started</p>
-          </div>
-        </div>
-      </div>
+      {/* Sidebar with chat list */}
+      <Suspense fallback={
+        <ChatSidebar
+          chats={[]}
+          onCreateNewChat={createNewChat}
+          isLoading={true}
+        />
+      }>
+        <ChatSidebar
+          chats={chats()?.map(chat => ({
+            id: chat.id,
+            title: chat.title,
+            createdAt: chat.createdAt
+          })) || []}
+          onCreateNewChat={createNewChat}
+          isLoading={false}
+        />
+      </Suspense>
 
       {/* Main area */}
       <div class="flex-1 flex items-center justify-center text-gray-500">

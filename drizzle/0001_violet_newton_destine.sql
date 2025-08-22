@@ -1,0 +1,1 @@
+ALTER TABLE "messages" ALTER COLUMN "is_complete" SET NOT NULL;

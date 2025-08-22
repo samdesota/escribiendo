@@ -19,7 +19,7 @@ export const messages = pgTable('messages', {
   type: messageTypeEnum('type').notNull(),
   content: text('content').notNull(),
   timestamp: bigint('timestamp', { mode: 'number' }).notNull(),
-  isComplete: boolean('is_complete').default(true),
+  isComplete: boolean('is_complete').default(true).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
