@@ -3,6 +3,7 @@
 export interface ChatData {
   id: string;
   title: string;
+  model?: string;
   createdAt: number;
   messages?: MessageData[];
 }

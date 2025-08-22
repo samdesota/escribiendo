@@ -1,6 +1,6 @@
 import { createSignal, createEffect } from 'solid-js';
 import { useParams, useNavigate, createAsync, type RouteDefinition, revalidate } from '@solidjs/router';
-import { ChatSuggestionService } from '~/services/llm/ChatSuggestionService';
+import { ClientLLMService } from '~/services/llm';
 import { createChatAPI, updateChatAPI, deleteChatAPI, createMessageAPI, type MessageData } from '~/lib/api';
 import { chatsQuery, chatQuery } from '~/lib/queries';
 import ChatSidebar, { type Chat as SidebarChat } from '~/components/ChatSidebar';
@@ -20,7 +20,7 @@ export const route = {
 
 export default function ChatExperiment() {
   // Initialize services
-  const chatSuggestionService = new ChatSuggestionService();
+  const [llmService, setLlmService] = createSignal(new ClientLLMService());
   const params = useParams();
   const navigate = useNavigate();
 
@@ -42,6 +42,7 @@ export default function ChatExperiment() {
       const formattedChats: Chat[] = serverChats.map(chat => ({
         id: chat.id,
         title: chat.title,
+        model: (chat as any).model || 'gpt-4o',
         messages: [], // Messages will be loaded separately per chat
         createdAt: chat.createdAt
       }));
@@ -59,6 +60,7 @@ export default function ChatExperiment() {
       const chatWithMessages: Chat = {
         id: serverChat.id,
         title: serverChat.title,
+        model: serverChat.model || 'claude-3.5-sonnet',
         messages: serverChat.messages.map(msg => ({
           id: msg.id,
           type: msg.type as 'user' | 'assistant' | 'suggestion',
@@ -68,6 +70,12 @@ export default function ChatExperiment() {
         })),
         createdAt: serverChat.createdAt
       };
+      
+      console.log('serverChat', serverChat);
+      // Switch LLM service to use the chat's model
+      const chatModel = (serverChat as any).model || 'gpt-4o';
+      const service = new ClientLLMService(chatModel);
+      setLlmService(service);
       setCurrentChat(chatWithMessages);
       
       // Also update the chats list for sidebar
@@ -82,6 +90,7 @@ export default function ChatExperiment() {
           const sidebarChat: Chat = {
             id: serverChat.id,
             title: serverChat.title,
+            model: serverChat.model || 'claude-3.5-sonnet',
             messages: [],
             createdAt: serverChat.createdAt
           };
@@ -125,11 +134,12 @@ export default function ChatExperiment() {
   };
 
   // Create a new chat
-  const createNewChat = async () => {
+  const createNewChat = async (modelId?: string) => {
     // Create new chat without welcome message - conversation starters will be shown instead
     const newChatData = {
       id: `chat-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       title: `Chat ${chats().length + 1}`,
+              model: modelId || 'gpt-4o',
       createdAt: Date.now()
     };
 
@@ -137,6 +147,7 @@ export default function ChatExperiment() {
       const createdChat = await createChatAPI(newChatData);
       const newChat: Chat = {
         ...createdChat,
+        model: createdChat.model || 'gpt-4o',
         messages: []
       };
       
@@ -153,6 +164,7 @@ export default function ChatExperiment() {
       // Fallback to local creation for now
       const newChat: Chat = {
         ...newChatData,
+        model: newChatData.model || 'gpt-4o',
         messages: []
       };
       setChats(prev => [newChat, ...prev]);
@@ -167,6 +179,7 @@ export default function ChatExperiment() {
     const newChatData = {
       id: chatId,
       title: `Chat ${chats().length + 1}`,
+      model: 'gpt-4o',
       createdAt: Date.now()
     };
 
@@ -174,6 +187,7 @@ export default function ChatExperiment() {
       const createdChat = await createChatAPI(newChatData);
       const newChat: Chat = {
         ...createdChat,
+        model: createdChat.model || 'gpt-4o',
         messages: []
       };
       
@@ -188,6 +202,7 @@ export default function ChatExperiment() {
       // Fallback to local creation
       const newChat: Chat = {
         ...newChatData,
+        model: newChatData.model || 'gpt-4o',
         messages: []
       };
       setChats(prev => [newChat, ...prev]);
@@ -254,6 +269,29 @@ export default function ChatExperiment() {
     }
   };
 
+  // Switch chat model
+  const switchChatModel = async (chatId: string, modelId: string) => {
+    try {
+      await updateChatAPI(chatId, { model: modelId });
+      
+      // Update local state
+      setChats(prev => prev.map(chat => 
+        chat.id === chatId ? { ...chat, model: modelId } : chat
+      ));
+      
+      setCurrentChat(prev => prev ? { ...prev, model: modelId } : null);
+      
+      // Switch the LLM service to use the new model
+      const newService = new ClientLLMService(modelId);
+      setLlmService(newService);
+      
+      // Revalidate server data
+      revalidate([chatQuery.key, chatId]);
+    } catch (error) {
+      console.error('Failed to update chat model:', error);
+    }
+  };
+
   // Handle case where chat doesn't exist - create it
   createEffect(() => {
     const chatId = params.chatId;
@@ -274,7 +312,7 @@ export default function ChatExperiment() {
           title: chat.title,
           createdAt: chat.createdAt
         }))}
-        onCreateNewChat={createNewChat}
+        onCreateNewChat={() => createNewChat()}
         onDeleteChat={deleteChat}
         isLoading={false}
       />
@@ -285,9 +323,10 @@ export default function ChatExperiment() {
           currentChat() ? (
             <ChatConversation
               chat={currentChat()}
-              chatSuggestionService={chatSuggestionService}
+              chatSuggestionService={llmService()}
               onSaveMessage={saveMessageToDatabase}
               onUpdateChatTitle={updateChatTitle}
+              onSwitchModel={switchChatModel}
             />
           ) : (
             // Chat ID exists but chat not found - show loading
@@ -304,7 +343,7 @@ export default function ChatExperiment() {
               <h3 class="text-lg font-medium mb-2">Welcome to Chat Experiment</h3>
               <p class="mb-4">Create a new chat to start experimenting with Spanish suggestions</p>
               <button
-                onClick={createNewChat}
+                onClick={() => createNewChat()}
                 class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
               >
                 Create Your First Chat

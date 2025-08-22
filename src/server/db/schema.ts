@@ -8,6 +8,7 @@ export const messageTypeEnum = pgEnum('message_type', ['user', 'assistant', 'sug
 export const chats = pgTable('chats', {
   id: varchar('id', { length: 255 }).primaryKey(),
   title: varchar('title', { length: 500 }).notNull(),
+  model: varchar('model', { length: 50 }).notNull().default('gpt-4o'),
   createdAt: bigint('created_at', { mode: 'number' }).notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });

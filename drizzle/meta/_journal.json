@@ -15,6 +15,20 @@
       "when": 1755805808155,
       "tag": "0001_violet_newton_destine",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1755861739120,
+      "tag": "0002_brief_purifiers",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1755864702759,
+      "tag": "0003_sleepy_puff_adder",
+      "breakpoints": true
     }
   ]
 }

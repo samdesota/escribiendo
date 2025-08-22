@@ -1,8 +1,28 @@
 import { query } from "@solidjs/router";
 import { getChats, getChatWithMessages } from "~/server/db/queries";
 
+interface SerializableChat {
+  id: string;
+  title: string;
+  model: string;
+  createdAt: number;
+  updatedAt: Date;
+}
+
+interface SerializableChatWithMessages extends SerializableChat {
+  messages: Array<{
+    id: string;
+    chatId: string;
+    type: 'user' | 'assistant' | 'suggestion';
+    content: string;
+    timestamp: number;
+    isComplete: boolean;
+    createdAt: Date;
+  }>;
+}
+
 // Query to get all chats
-export const chatsQuery = query(async () => {
+export const chatsQuery = query(async (): Promise<SerializableChat[]> => {
   "use server";
   try {
     const chats = await getChats();
@@ -10,6 +30,7 @@ export const chatsQuery = query(async () => {
     return chats.map(chat => ({
       id: chat.id,
       title: chat.title,
+      model: chat.model,
       createdAt: chat.createdAt,
       updatedAt: chat.updatedAt
     }));
@@ -20,7 +41,7 @@ export const chatsQuery = query(async () => {
 }, "chats");
 
 // Query to get a specific chat with messages
-export const chatQuery = query(async (id: string) => {
+export const chatQuery = query(async (id: string): Promise<SerializableChatWithMessages | null> => {
   "use server";
   try {
     const chat = await getChatWithMessages(id);
@@ -30,6 +51,7 @@ export const chatQuery = query(async (id: string) => {
     return {
       id: chat.id,
       title: chat.title,
+      model: chat.model,
       createdAt: chat.createdAt,
       updatedAt: chat.updatedAt,
       messages: chat.messages.map(msg => ({

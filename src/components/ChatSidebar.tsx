@@ -4,6 +4,7 @@ import { useNavigate, useParams } from '@solidjs/router';
 export interface Chat {
   id: string;
   title: string;
+  model?: string;
   createdAt: number;
 }
 

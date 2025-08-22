@@ -1,5 +1,6 @@
 import type { APIEvent } from "@solidjs/start/server";
 import { getChats, createChat } from "~/server/db/queries";
+import { AVAILABLE_MODELS } from "~/services/llm/types";
 
 export const GET = async (_event: APIEvent) => {
   try {
@@ -34,9 +35,21 @@ export const POST = async (event: APIEvent) => {
       );
     }
 
+    // Validate model is a valid model
+    if (!payload.model || !Object.keys(AVAILABLE_MODELS).includes(payload.model)) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid model' }),
+        {
+          status: 400,
+          headers: { "content-type": "application/json" },
+        }
+      );
+    }
+
     const newChat = await createChat({
       id: payload.id,
       title: payload.title,
+      model: payload.model || 'claude-3.5-sonnet',
       createdAt: payload.createdAt || Date.now(),
     });
 

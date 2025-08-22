@@ -17,6 +17,7 @@
     "@unocss/reset": "^0.65.1",
     "dotenv": "^17.2.1",
     "drizzle-orm": "^0.44.4",
+    "openai": "^5.15.0",
     "postgres": "^3.4.7",
     "solid-js": "^1.9.5",
     "unocss": "^0.65.1",

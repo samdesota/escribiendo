@@ -29,6 +29,7 @@ export async function getChatWithMessages(id: string) {
 }
 
 export async function createChat(data: NewChat) {
+  console.log('createChat', data);
   const result = await db.insert(chats).values(data).returning();
   return result[0];
 }

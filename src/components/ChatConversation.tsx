@@ -1,5 +1,5 @@
 import { createSignal, For, onCleanup, onMount, createEffect } from 'solid-js';
-import { ChatSuggestionService, type ChatSuggestionRequest, type TranslationRequest, type TranslationResponse } from '~/services/llm/ChatSuggestionService';
+import { ClientLLMService, type ChatSuggestionRequest, type TranslationRequest, type TranslationResponse, AVAILABLE_MODELS } from '~/services/llm';
 
 export interface ChatMessage {
   id: string;
@@ -12,6 +12,7 @@ export interface ChatMessage {
 export interface Chat {
   id: string;
   title: string;
+  model?: string;
   messages: ChatMessage[];
   createdAt: number;
 }
@@ -44,9 +45,10 @@ export interface TextSelectionState {
 
 export interface ChatConversationProps {
   chat: Chat | null;
-  chatSuggestionService: ChatSuggestionService;
+  chatSuggestionService: ClientLLMService;
   onSaveMessage: (message: ChatMessage) => Promise<void>;
   onUpdateChatTitle: (chatId: string, title: string) => Promise<void>;
+  onSwitchModel?: (chatId: string, modelId: string) => Promise<void>;
 }
 
 export default function ChatConversation(props: ChatConversationProps) {
@@ -89,6 +91,14 @@ export default function ChatConversation(props: ChatConversationProps) {
   // Track previous starters to avoid repetition
   const [previousAssistantQuestions, setPreviousAssistantQuestions] = createSignal<string[]>([]);
   const [previousUserQuestions, setPreviousUserQuestions] = createSignal<string[]>([]);
+  
+  // Model selection state
+  const [isModelSelectorOpen, setIsModelSelectorOpen] = createSignal(false);
+  const availableModels = Object.entries(AVAILABLE_MODELS).map(([id, config]) => ({
+    id,
+    displayName: config.displayName,
+    provider: config.provider
+  }));
 
   // Load conversation starters
   const loadConversationStarters = async () => {
@@ -472,6 +482,14 @@ export default function ChatConversation(props: ChatConversationProps) {
     }
   };
 
+  // Handle clicking outside to close model selector
+  const handleClickOutside = (event: MouseEvent) => {
+    const target = event.target as Element;
+    if (!target.closest('.model-selector-container')) {
+      setIsModelSelectorOpen(false);
+    }
+  };
+
   // Handle text selection for translation
   const handleTextSelection = async () => {
     if (typeof window === 'undefined') return;
@@ -635,6 +653,7 @@ export default function ChatConversation(props: ChatConversationProps) {
     // Add text selection event listeners
     if (typeof window !== 'undefined') {
       document.addEventListener('selectionchange', handleTextSelection);
+      document.addEventListener('click', handleClickOutside);
       document.addEventListener('click', (e) => {
         // Clear selection if clicking outside of message area
         const target = e.target as Element;
@@ -660,6 +679,7 @@ export default function ChatConversation(props: ChatConversationProps) {
     // Remove event listeners
     if (typeof window !== 'undefined') {
       document.removeEventListener('selectionchange', handleTextSelection);
+      document.removeEventListener('click', handleClickOutside);
     }
   });
 
@@ -678,9 +698,65 @@ export default function ChatConversation(props: ChatConversationProps) {
     <>
       {/* Chat header */}
       <div class="p-4 border-b border-gray-200 bg-white">
-        <h2 class="font-medium text-gray-900">
-          {props.chat?.title || 'Chat'}
-        </h2>
+        <div class="flex items-center justify-between">
+          <h2 class="font-medium text-gray-900">
+            {props.chat?.title || 'Chat'}
+          </h2>
+          
+          {/* Model selector */}
+          <div class="relative model-selector-container">
+            <button
+              onClick={() => setIsModelSelectorOpen(!isModelSelectorOpen())}
+              class="px-3 py-1 text-sm bg-gray-100 hover:bg-gray-200 border border-gray-300 rounded-lg flex items-center gap-2 transition-colors"
+            >
+              <span class="text-xs opacity-60">Model:</span>
+              <span class="font-medium">
+                {availableModels.find(m => m.id === (props.chat?.model || 'gpt-4o'))?.displayName || 'GPT-4o'}
+              </span>
+              <svg 
+                class={`w-4 h-4 transition-transform ${isModelSelectorOpen() ? 'rotate-180' : ''}`} 
+                fill="none" 
+                stroke="currentColor" 
+                viewBox="0 0 24 24"
+              >
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+              </svg>
+            </button>
+            
+            {/* Model dropdown */}
+            {isModelSelectorOpen() && (
+              <div class="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-50 min-w-48">
+                <div class="py-1">
+                  <For each={availableModels}>
+                    {(model) => (
+                      <button
+                        onClick={async () => {
+                          if (props.chat && props.onSwitchModel) {
+                            await props.onSwitchModel(props.chat.id, model.id);
+                          }
+                          setIsModelSelectorOpen(false);
+                        }}
+                        class={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 flex items-center justify-between
+                          ${(props.chat?.model || 'gpt-4o') === model.id ? 'bg-blue-50 text-blue-700' : 'text-gray-700'}`}
+                      >
+                        <div>
+                          <div class="font-medium">{model.displayName}</div>
+                          <div class="text-xs opacity-60 capitalize">{model.provider}</div>
+                        </div>
+                        {(props.chat?.model || 'gpt-4o') === model.id && (
+                          <svg class="w-4 h-4 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                          </svg>
+                        )}
+                      </button>
+                    )}
+                  </For>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+        
         <div class="text-sm text-gray-500 mt-1">
           {suggestionState().isActive ? (
             <span class="text-amber-600 font-medium animate-pulse">

@@ -1,0 +1,1 @@
+ALTER TABLE "chats" ADD COLUMN "model" varchar(50) DEFAULT 'claude-3.5-sonnet' NOT NULL;
