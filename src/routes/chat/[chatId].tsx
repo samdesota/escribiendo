@@ -4,7 +4,8 @@ import { ClientLLMService } from '~/services/llm';
 import { createChatAPI, updateChatAPI, deleteChatAPI, createMessageAPI, type MessageData } from '~/lib/api';
 import { chatsQuery, chatQuery } from '~/lib/queries';
 import ChatSidebar, { type Chat as SidebarChat } from '~/components/ChatSidebar';
-import ChatConversation, { type Chat, type ChatMessage } from '~/components/ChatConversation';
+import ChatConversation from '~/components/ChatConversation';
+import { Chat, ChatMessage } from '~/components/types';
 
 export const route = { 
   preload: ({ params }) => {
