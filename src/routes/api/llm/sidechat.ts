@@ -6,9 +6,9 @@ export const POST = async (event: APIEvent) => {
     const payload = await event.request.json();
     
     // Validate required fields
-    if (!payload.originalContext || !payload.spanishSuggestion || !payload.studentMessage) {
+    if (!payload.spanishSuggestion || !payload.studentMessage) {
       return new Response(
-        JSON.stringify({ error: 'Missing required fields: originalContext, spanishSuggestion, studentMessage' }),
+        JSON.stringify({ error: 'Missing required fields: spanishSuggestion, studentMessage' }),
         {
           status: 400,
           headers: { "content-type": "application/json" },
@@ -20,15 +20,58 @@ export const POST = async (event: APIEvent) => {
     const modelId = payload.model || 'gpt-4o';
     const llmService = new LLMService(modelId);
 
-    const response = await llmService.getSideChatResponse({
-      originalContext: payload.originalContext,
-      spanishSuggestion: payload.spanishSuggestion,
-      studentMessage: payload.studentMessage
-    });
+    // Check if streaming is requested
+    if (payload.stream) {
+      // Set up SSE headers for streaming
+      const headers = new Headers({
+        'Content-Type': 'text/plain; charset=utf-8',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Headers': 'Cache-Control',
+      });
 
-    return new Response(JSON.stringify(response), {
-      headers: { "content-type": "application/json" },
-    });
+      // Create a ReadableStream for SSE
+      const stream = new ReadableStream({
+        start(controller) {
+          const encoder = new TextEncoder();
+          
+          llmService.getSideChatResponseStreaming(
+            {
+              originalContext: payload.originalContext,
+              spanishSuggestion: payload.spanishSuggestion,
+              studentMessage: payload.studentMessage
+            },
+            {
+              onTextChunk: (chunk: string) => {
+                controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'chunk', content: chunk })}\n\n`));
+              },
+              onComplete: (finalText: string) => {
+                controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'complete', content: finalText })}\n\n`));
+                controller.close();
+              },
+              onError: (error: string) => {
+                controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'error', content: error })}\n\n`));
+                controller.close();
+              }
+            }
+          );
+        }
+      });
+
+      return new Response(stream, { headers });
+    } else {
+      // Non-streaming response
+      const response = await llmService.getSideChatResponse({
+        originalContext: payload.originalContext,
+        spanishSuggestion: payload.spanishSuggestion,
+        studentMessage: payload.studentMessage
+      });
+
+      return new Response(JSON.stringify(response), {
+        headers: { "content-type": "application/json" },
+      });
+    }
   } catch (error) {
     console.error('Error in sidechat API:', error);
     return new Response(

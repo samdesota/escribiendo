@@ -115,6 +115,16 @@ export class LLMService {
   }
 
   /**
+   * Handle side chat conversations about grammar and language with streaming
+   */
+  async getSideChatResponseStreaming(
+    request: SideChatRequest,
+    callbacks: StreamingChatCallbacks
+  ): Promise<void> {
+    return this.provider.getSideChatResponseStreaming(request, callbacks);
+  }
+
+  /**
    * Get translation for selected text
    */
   async getTranslation(request: TranslationRequest): Promise<TranslationResponse> {

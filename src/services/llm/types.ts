@@ -84,6 +84,7 @@ export interface LLMProvider {
   getRegularChatResponseStreaming(request: RegularChatRequest, callbacks: StreamingChatCallbacks): Promise<void>;
   getRegularChatResponse(request: RegularChatRequest): Promise<RegularChatResponse>;
   getSideChatResponse(request: SideChatRequest): Promise<SideChatResponse>;
+  getSideChatResponseStreaming(request: SideChatRequest, callbacks: StreamingChatCallbacks): Promise<void>;
   getTranslation(request: TranslationRequest): Promise<TranslationResponse>;
   getConversationStarters(previousAssistantQuestions?: string[], previousUserQuestions?: string[]): Promise<ConversationStartersResponse>;
 }

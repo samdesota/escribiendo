@@ -1,47 +1,8 @@
 import { createSignal, For, onCleanup, onMount, createEffect } from 'solid-js';
 import { ClientLLMService, type ChatSuggestionRequest, type TranslationRequest, type TranslationResponse, AVAILABLE_MODELS } from '~/services/llm';
-
-export interface ChatMessage {
-  id: string;
-  type: 'user' | 'assistant' | 'suggestion';
-  content: string;
-  timestamp: number;
-  isComplete?: boolean;
-}
-
-export interface Chat {
-  id: string;
-  title: string;
-  model?: string;
-  messages: ChatMessage[];
-  createdAt: number;
-}
-
-export interface SuggestionState {
-  isActive: boolean;
-  partialText: string;
-  debounceTimeout?: ReturnType<typeof setTimeout>;
-  isLoading: boolean;
-  currentSuggestion: string;
-}
-
-export interface SideChatState {
-  isOpen: boolean;
-  context: string;
-  suggestion: string;
-  messages: ChatMessage[];
-}
-
-export interface TextSelectionState {
-  isActive: boolean;
-  selectedText: string;
-  messageId: string;
-  messageContent: string;
-  selectionRect: DOMRect | null;
-  translation: string;
-  isLoading: boolean;
-  debounceTimeout?: ReturnType<typeof setTimeout>;
-}
+import { type ChatMessage, type Chat, type SuggestionState, type SideChatState, type TextSelectionState } from './types';
+import ChatInput from './ChatInput';
+import SideChat from './SideChat';
 
 export interface ChatConversationProps {
   chat: Chat | null;
@@ -401,6 +362,7 @@ export default function ChatConversation(props: ChatConversationProps) {
   const openSideChat = () => {
     if (!props.chat) return;
 
+    debugger;
     // Use the current suggestion if available, otherwise use the most recent suggestion from state
     const suggestion = suggestionState().currentSuggestion;
 
@@ -425,61 +387,12 @@ export default function ChatConversation(props: ChatConversationProps) {
     setSideChatState(prev => ({ ...prev, isOpen: false }));
   };
 
-  // Send message in side chat
-  const sendSideChatMessage = async (message: string) => {
-    if (!message.trim()) return;
-
-    const userMessage: ChatMessage = {
-      id: props.chatSuggestionService.generateMessageId(),
-      type: 'user',
-      content: message,
-      timestamp: Date.now(),
-      isComplete: true
-    };
-
-    // Add user message to side chat
+  // Handle side chat message from SideChat component
+  const handleSideChatMessage = (message: ChatMessage) => {
     setSideChatState(prev => ({
       ...prev,
-      messages: [...prev.messages, userMessage]
+      messages: [...prev.messages, message]
     }));
-
-    try {
-      // Get response from LLM
-      const response = await props.chatSuggestionService.getSideChatResponse({
-        originalContext: sideChatState().context,
-        spanishSuggestion: sideChatState().suggestion,
-        studentMessage: message
-      });
-
-      const assistantMessage: ChatMessage = {
-        id: props.chatSuggestionService.generateMessageId(),
-        type: 'assistant',
-        content: response.response,
-        timestamp: Date.now(),
-        isComplete: true
-      };
-
-      // Add assistant response
-      setSideChatState(prev => ({
-        ...prev,
-        messages: [...prev.messages, assistantMessage]
-      }));
-
-    } catch (error) {
-      console.error('Side chat error:', error);
-      const errorMessage: ChatMessage = {
-        id: props.chatSuggestionService.generateMessageId(),
-        type: 'assistant',
-        content: 'Lo siento, he tenido un error. Por favor, inténtalo de nuevo.',
-        timestamp: Date.now(),
-        isComplete: true
-      };
-
-      setSideChatState(prev => ({
-        ...prev,
-        messages: [...prev.messages, errorMessage]
-      }));
-    }
   };
 
   // Handle clicking outside to close model selector
@@ -839,31 +752,21 @@ export default function ChatConversation(props: ChatConversationProps) {
 
       {/* Input area */}
       <div class="p-4 border-t border-gray-200 bg-white">
-        <div class="flex gap-2">
-          <input
-            type="text"
-            value={currentInput()}
-            onInput={(e) => handleInputChange(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder={suggestionState().isActive 
-              ? "Suggestion mode active..."
-              : "Type your message... (Tab for Spanish suggestions)"
-            }
-            class={`flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-              suggestionState().isActive ? 'ring-2 ring-amber-400 border-amber-400' : ''
-            }`}
-          />
-          <button
-            onClick={handleSendMessage}
-            disabled={!currentInput().trim() || suggestionState().isLoading || isGettingResponse()}
-            class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Send
-          </button>
-        </div>
-        <div class="text-xs text-gray-500 mt-2">
-          <span class="font-medium">Tips:</span> Tab → get suggestions | Shift+Enter → grammar chat | Enter → send
-        </div>
+        <ChatInput
+          value={currentInput()}
+          onInput={handleInputChange}
+          onKeyDown={handleKeyDown}
+          onSend={handleSendMessage}
+          placeholder={suggestionState().isActive 
+            ? "Suggestion mode active..."
+            : "Type your message... (Tab for Spanish suggestions)"
+          }
+          disabled={suggestionState().isLoading || isGettingResponse()}
+          showSendButton={true}
+          isLoading={isGettingResponse()}
+          isActive={suggestionState().isActive}
+          tips="Tips: Tab → get suggestions | Shift+Enter → grammar chat | Enter → send"
+        />
 
         {/* Suggestion display */}
         {suggestionState().isActive && (
@@ -908,60 +811,15 @@ export default function ChatConversation(props: ChatConversationProps) {
       )}
 
       {/* Side Chat Panel */}
-      {sideChatState().isOpen && (
-        <div class="fixed inset-y-0 right-0 w-96 bg-white border-l border-gray-200 shadow-lg z-50 flex flex-col">
-          {/* Side chat header */}
-          <div class="p-4 border-b border-gray-200 bg-gray-50">
-            <div class="flex items-center justify-between">
-              <h3 class="font-medium text-gray-900">Grammar Chat</h3>
-              <button
-                onClick={closeSideChat}
-                class="text-gray-400 hover:text-gray-600"
-              >
-                ✕
-              </button>
-            </div>
-            <div class="mt-2 text-sm text-gray-600">
-              <div class="font-medium">Discussing:</div>
-              <div class="bg-amber-100 px-2 py-1 rounded mt-1 text-amber-800">
-                "{sideChatState().suggestion}"
-              </div>
-            </div>
-          </div>
-
-          {/* Side chat messages */}
-          <div class="flex-1 overflow-y-auto p-4 space-y-3">
-            {sideChatState().messages.length === 0 && (
-              <div class="text-center text-gray-500 mt-8">
-                <p class="text-sm">Ask me about the Spanish suggestion!</p>
-                <p class="text-xs mt-1">
-                  Try: "Why did you use this word?" or "Can you explain the grammar?"
-                </p>
-              </div>
-            )}
-            
-            <For each={sideChatState().messages}>
-              {(message) => (
-                <div class={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}>
-                  <div class={`max-w-[85%] rounded-lg px-3 py-2 text-sm ${
-                    message.type === 'user' 
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-gray-100 text-gray-800'
-                  }`}>
-                    <div class="whitespace-pre-wrap">{message.content}</div>
-                    <div class="text-xs opacity-70 mt-1">
-                      {new Date(message.timestamp).toLocaleTimeString()}
-                    </div>
-                  </div>
-                </div>
-              )}
-            </For>
-          </div>
-
-          {/* Side chat input */}
-          <SideChatInput onSendMessage={sendSideChatMessage} />
-        </div>
-      )}
+      <SideChat
+        isOpen={sideChatState().isOpen}
+        context={sideChatState().context}
+        suggestion={sideChatState().suggestion}
+        messages={sideChatState().messages}
+        chatSuggestionService={props.chatSuggestionService}
+        onClose={closeSideChat}
+        onSendMessage={handleSideChatMessage}
+      />
     </>
   );
 }
@@ -1175,48 +1033,3 @@ function ConversationStarters(props: ConversationStartersProps) {
   );
 }
 
-// Side Chat Input Component
-interface SideChatInputProps {
-  onSendMessage: (message: string) => void;
-}
-
-function SideChatInput(props: SideChatInputProps) {
-  const [input, setInput] = createSignal('');
-
-  const handleSend = () => {
-    const message = input().trim();
-    if (message) {
-      props.onSendMessage(message);
-      setInput('');
-    }
-  };
-
-  const handleKeyDown = (e: KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSend();
-    }
-  };
-
-  return (
-    <div class="p-3 border-t border-gray-200">
-      <div class="flex gap-2">
-        <input
-          type="text"
-          value={input()}
-          onInput={(e) => setInput(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder="Ask about the grammar..."
-          class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-        />
-        <button
-          onClick={handleSend}
-          disabled={!input().trim()}
-          class="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
-        >
-          Send
-        </button>
-      </div>
-    </div>
-  );
-}

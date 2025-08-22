@@ -187,6 +187,74 @@ export class ClientLLMService {
   }
 
   /**
+   * Handle side chat conversations about grammar and language with streaming
+   */
+  async getSideChatResponseStreaming(
+    request: SideChatRequest,
+    callbacks: StreamingChatCallbacks
+  ): Promise<void> {
+    try {
+      const response = await fetch('/api/llm/sidechat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...request,
+          model: this.model,
+          stream: true
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const reader = response.body?.getReader();
+      if (!reader) {
+        throw new Error('No reader available');
+      }
+
+      const decoder = new TextDecoder();
+      let fullMessage = '';
+
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          const chunk = decoder.decode(value);
+          const lines = chunk.split('\n');
+
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              try {
+                const data = JSON.parse(line.substring(6));
+                
+                if (data.type === 'chunk') {
+                  fullMessage += data.content;
+                  callbacks.onTextChunk(data.content);
+                } else if (data.type === 'complete') {
+                  callbacks.onComplete(fullMessage);
+                  return;
+                } else if (data.type === 'error') {
+                  callbacks.onError(data.content);
+                  return;
+                }
+              } catch (e) {
+                // Skip invalid JSON lines
+              }
+            }
+          }
+        }
+      } finally {
+        reader.releaseLock();
+      }
+    } catch (error) {
+      console.error('Failed to get streaming sidechat response:', error);
+      callbacks.onError(error instanceof Error ? error.message : 'Unknown error');
+    }
+  }
+
+  /**
    * Get translation for selected text
    */
   async getTranslation(request: TranslationRequest): Promise<TranslationResponse> {

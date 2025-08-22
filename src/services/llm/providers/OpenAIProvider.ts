@@ -199,6 +199,48 @@ export class OpenAIProvider implements LLMProvider {
     }
   }
 
+  async getSideChatResponseStreaming(
+    request: SideChatRequest,
+    callbacks: StreamingChatCallbacks
+  ): Promise<void> {
+    try {
+      const prompt = buildSideChatPrompt(
+        request.originalContext,
+        request.spanishSuggestion,
+        request.studentMessage
+      );
+
+      const stream = await this.openai.chat.completions.create({
+        model: this.modelConfig.model,
+        max_tokens: this.modelConfig.maxTokens.sideChat,
+        temperature: this.modelConfig.temperature.sideChat,
+        messages: [
+          {
+            role: 'user',
+            content: prompt
+          }
+        ],
+        stream: true
+      });
+
+      let fullMessage = '';
+
+      for await (const chunk of stream) {
+        const content = chunk.choices[0]?.delta?.content;
+        if (content) {
+          fullMessage += content;
+          callbacks.onTextChunk(content);
+        }
+      }
+
+      callbacks.onComplete(fullMessage);
+
+    } catch (error) {
+      console.error('OpenAI side chat streaming service error:', error);
+      callbacks.onError(error instanceof Error ? error.message : 'Unknown error');
+    }
+  }
+
   async getTranslation(request: TranslationRequest): Promise<TranslationResponse> {
     const startTime = Date.now();
 

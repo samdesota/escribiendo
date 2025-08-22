@@ -205,6 +205,51 @@ export class AnthropicProvider implements LLMProvider {
     }
   }
 
+  async getSideChatResponseStreaming(
+    request: SideChatRequest,
+    callbacks: StreamingChatCallbacks
+  ): Promise<void> {
+    try {
+      const prompt = buildSideChatPrompt(
+        request.originalContext,
+        request.spanishSuggestion,
+        request.studentMessage
+      );
+
+      const stream = await this.anthropic.messages.create({
+        model: this.modelConfig.model,
+        max_tokens: this.modelConfig.maxTokens.sideChat,
+        temperature: this.modelConfig.temperature.sideChat,
+        messages: [
+          {
+            role: 'user',
+            content: prompt
+          }
+        ],
+        stream: true
+      });
+
+      let fullMessage = '';
+
+      for await (const event of stream) {
+        if (event.type === 'content_block_delta') {
+          if (event.delta.type === 'text_delta') {
+            const content = event.delta.text;
+            fullMessage += content;
+            callbacks.onTextChunk(content);
+          }
+        } else if (event.type === 'message_stop') {
+          callbacks.onComplete(fullMessage);
+          break;
+        }
+      }
+
+    } catch (error) {
+      console.error('Anthropic side chat streaming service error:', error);
+      callbacks.onError(error instanceof Error ? error.message : 'Unknown error');
+    }
+  }
+
   async getTranslation(request: TranslationRequest): Promise<TranslationResponse> {
     const startTime = Date.now();
 
