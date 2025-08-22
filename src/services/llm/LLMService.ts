@@ -13,7 +13,9 @@ import {
   SideChatResponse,
   TranslationRequest,
   TranslationResponse,
-  ConversationStartersResponse
+  ConversationStartersResponse,
+  StructuredRequest,
+  StructuredResponse
 } from './types';
 
 export class LLMService {
@@ -146,6 +148,13 @@ export class LLMService {
    */
   generateMessageId(): string {
     return `msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  }
+
+  /**
+   * Get a structured JSON response
+   */
+  async getStructuredResponse<T = any>(request: StructuredRequest): Promise<StructuredResponse<T>> {
+    return this.provider.getStructuredResponse<T>(request);
   }
 
   /**

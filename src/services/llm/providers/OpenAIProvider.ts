@@ -11,7 +11,9 @@ import {
   SideChatResponse,
   TranslationRequest,
   TranslationResponse,
-  ConversationStartersResponse
+  ConversationStartersResponse,
+  StructuredRequest,
+  StructuredResponse
 } from '../types';
 import {
   buildChatSuggestionPrompt,
@@ -354,6 +356,69 @@ export class OpenAIProvider implements LLMProvider {
       return {
         assistantQuestions: fallbackAssistantQuestions,
         userQuestions: fallbackUserQuestions,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        processingTime: Date.now() - startTime
+      };
+    }
+  }
+
+  async getStructuredResponse<T = any>(request: StructuredRequest): Promise<StructuredResponse<T>> {
+    const startTime = Date.now();
+
+    try {
+      const systemPrompt = `You are a helpful assistant that returns ONLY valid JSON responses. 
+Do not include any explanatory text, markdown formatting, or anything other than the requested JSON.
+${request.schema ? `\n\nExpected schema: ${request.schema}` : ''}`;
+
+      const response = await this.openai.chat.completions.create({
+        model: this.modelConfig.model,
+        max_tokens: 2000,
+        temperature: 0.1, // Low temperature for more consistent JSON output
+        messages: [
+          {
+            role: 'system',
+            content: systemPrompt
+          },
+          {
+            role: 'user',
+            content: request.prompt
+          }
+        ]
+      });
+
+      const content = response.choices[0]?.message?.content;
+      if (!content) {
+        throw new Error('No response from OpenAI');
+      }
+
+      // Clean the response to ensure it's valid JSON
+      let cleanedContent = content.trim();
+      
+      // Remove common markdown formatting
+      if (cleanedContent.startsWith('```json')) {
+        cleanedContent = cleanedContent.replace(/^```json\s*/, '').replace(/\s*```$/, '');
+      } else if (cleanedContent.startsWith('```')) {
+        cleanedContent = cleanedContent.replace(/^```\s*/, '').replace(/\s*```$/, '');
+      }
+
+      // Parse the JSON
+      let parsedData: T;
+      try {
+        parsedData = JSON.parse(cleanedContent);
+      } catch (parseError) {
+        console.error('Failed to parse JSON from OpenAI:', cleanedContent);
+        throw new Error(`Invalid JSON response: ${parseError instanceof Error ? parseError.message : 'Unknown parse error'}`);
+      }
+
+      return {
+        data: parsedData,
+        processingTime: Date.now() - startTime
+      };
+
+    } catch (error) {
+      console.error('OpenAI structured response error:', error);
+      return {
+        data: null as T,
         error: error instanceof Error ? error.message : 'Unknown error',
         processingTime: Date.now() - startTime
       };

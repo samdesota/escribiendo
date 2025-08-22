@@ -59,6 +59,17 @@ export interface ConversationStartersResponse {
   error?: string;
 }
 
+export interface StructuredRequest {
+  prompt: string;
+  schema?: string; // Optional schema description for better results
+}
+
+export interface StructuredResponse<T = any> {
+  data: T;
+  processingTime?: number;
+  error?: string;
+}
+
 export interface LLMModelConfig {
   provider: 'openai' | 'anthropic';
   model: string;
@@ -87,6 +98,7 @@ export interface LLMProvider {
   getSideChatResponseStreaming(request: SideChatRequest, callbacks: StreamingChatCallbacks): Promise<void>;
   getTranslation(request: TranslationRequest): Promise<TranslationResponse>;
   getConversationStarters(previousAssistantQuestions?: string[], previousUserQuestions?: string[]): Promise<ConversationStartersResponse>;
+  getStructuredResponse<T = any>(request: StructuredRequest): Promise<StructuredResponse<T>>;
 }
 
 export const AVAILABLE_MODELS: Record<string, LLMModelConfig> = {
