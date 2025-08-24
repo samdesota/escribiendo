@@ -39,3 +39,24 @@ export interface TextSelectionState {
   isLoading: boolean;
   debounceTimeout?: ReturnType<typeof setTimeout>;
 }
+
+// Journal-specific types
+export interface CorrectionSuggestion {
+  id: string;
+  originalText: string;
+  correctedText: string;
+  startPos: number;
+  endPos: number;
+  status: 'pending' | 'accepted' | 'rejected';
+}
+
+export interface JournalEntry {
+  id: string;
+  userId: string;
+  title: string;
+  content: any; // ProseMirror document JSON
+  plainText: string;
+  wordCount: number;
+  createdAt: string;
+  updatedAt: string;
+}

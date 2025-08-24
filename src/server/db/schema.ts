@@ -24,9 +24,44 @@ export const messages = pgTable('messages', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
+// Journal entries table
+export const journalEntries = pgTable('journal_entries', {
+  id: varchar('id', { length: 255 }).primaryKey(),
+  userId: varchar('user_id', { length: 255 }).notNull(), // Add user support later
+  title: varchar('title', { length: 500 }).notNull().default('Untitled'),
+  content: json('content').notNull(), // ProseMirror document format
+  plainText: text('plain_text').notNull().default(''), // For search/backup
+  wordCount: integer('word_count').notNull().default(0),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+// Journal corrections/suggestions table for tracking LLM suggestions
+export const journalCorrections = pgTable('journal_corrections', {
+  id: varchar('id', { length: 255 }).primaryKey(),
+  entryId: varchar('entry_id', { length: 255 }).notNull().references(() => journalEntries.id, { onDelete: 'cascade' }),
+  originalText: text('original_text').notNull(),
+  correctedText: text('corrected_text').notNull(),
+  startPos: integer('start_pos').notNull(),
+  endPos: integer('end_pos').notNull(),
+  status: varchar('status', { length: 20 }).notNull().default('pending'), // pending, accepted, rejected
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
 // Relations
 export const chatsRelations = relations(chats, ({ many }) => ({
   messages: many(messages),
+}));
+
+export const journalEntriesRelations = relations(journalEntries, ({ many }) => ({
+  corrections: many(journalCorrections),
+}));
+
+export const journalCorrectionsRelations = relations(journalCorrections, ({ one }) => ({
+  entry: one(journalEntries, {
+    fields: [journalCorrections.entryId],
+    references: [journalEntries.id],
+  }),
 }));
 
 export const messagesRelations = relations(messages, ({ one }) => ({
