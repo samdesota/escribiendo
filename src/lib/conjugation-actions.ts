@@ -7,12 +7,21 @@ import {
   createConjugationDrill,
   createDrillSession,
   completeDrillSession,
-  getDrillSessionWithDrills
+  getDrillSessionWithDrills,
+  getActiveDrillSession,
+  getUnlockProgress
 } from "~/server/db/conjugation-queries";
 import { CONJUGATION_RULES, getRulesByOrder } from "~/lib/conjugation-rules";
 import { LLMService } from "~/services/llm/LLMService";
+import { getWordSeedsForPrompt } from "~/lib/word-seeds";
 
-export async function generateDrillsAction(userId: string, count: number = 5, focusRuleId?: string) {
+export async function generateDrillsAction(userId: string, count: number = 5) {
+  // Always complete any existing active sessions to ensure we generate fresh drills
+  const existingSession = await getActiveDrillSession(userId);
+  if (existingSession) {
+    await completeDrillSession(userId, existingSession.id);
+  }
+
   // Get user progress to understand what rules are unlocked and their performance
   const userProgress = await getUserProgressWithRules(userId);
   const unlockedRuleIds = userProgress
@@ -25,6 +34,8 @@ export async function generateDrillsAction(userId: string, count: number = 5, fo
     unlockedRuleIds.push(firstRule.id);
   }
 
+  const focusRuleId = userProgress.find(p => p.progress.totalAttempts < 20)?.progress.ruleId;
+
   // Determine which rules to focus on
   let rulesToFocus: string[] = [];
   
@@ -35,7 +46,7 @@ export async function generateDrillsAction(userId: string, count: number = 5, fo
     // Mix of rules based on performance
     const weakRules = userProgress
       .filter(p => p.progress.isUnlocked && p.progress.totalAttempts > 0)
-      .filter(p => (p.progress.correctCount / p.progress.totalAttempts) < 0.8)
+      .filter(p => (p.progress.correctCount / p.progress.totalAttempts) < 0.9)
       .map(p => p.progress.ruleId);
     
     const recentRules = userProgress
@@ -50,6 +61,9 @@ export async function generateDrillsAction(userId: string, count: number = 5, fo
     
     rulesToFocus = [...new Set([...weakRules, ...recentRules, ...unlockedRuleIds.slice(-2)])];
   }
+
+  // Get random word seeds for variety
+  const wordSeeds = await getWordSeedsForPrompt();
 
   // Create prompt for LLM to generate drills
   const rulesContext = CONJUGATION_RULES
@@ -75,7 +89,11 @@ export async function generateDrillsAction(userId: string, count: number = 5, fo
     .filter(rule => rulesToFocus.includes(rule.id))
     .map(rule => rule.id);
 
-  const prompt = `Generate ${count} Spanish conjugation drill exercises based on these rules:
+  const focusInstructions = focusRuleId 
+    ? `SPECIAL FOCUS: This user just unlocked a new rule! Generate ALL ${count} exercises focusing on "${focusRuleId}" to help them practice this new concept immediately.`
+    : `Focus more on rules where the user has lower accuracy`;
+
+  const prompt = `${wordSeeds}Generate ${count} Spanish conjugation drill exercises based on these rules:
 
 ${rulesContext}
 
@@ -87,9 +105,10 @@ For each drill, create a sentence in Spanish where ONE verb should be conjugated
 Requirements:
 1. The sentence should clearly indicate which tense to use through context
 2. Vary the verbs, pronouns, and difficulty
-3. Focus more on rules where the user has lower accuracy
+3. ${focusInstructions}
 4. Make sentences natural and contextually clear about the required tense
 5. Include a mix of easy and challenging examples
+6. IMPORTANT: Incorporate the provided random words into your sentences for variety and to avoid repetitive content. Use them as nouns, subjects, or context within the sentences to create diverse scenarios.
 
 IMPORTANT: You MUST use one of these exact Rule IDs (case-sensitive):
 ${focusedRuleIds.map(id => `"${id}"`).join(', ')}
@@ -180,13 +199,19 @@ Tenses to use: ${Array.from(new Set(CONJUGATION_RULES.filter(r => rulesToFocus.i
 }
 
 export async function recordAnswerAction(userId: string, drillId: string, userAnswer: string, isCorrect: boolean, timeSpent?: number) {
-  return await recordDrillAttempt({
+  const result = await recordDrillAttempt({
     userId,
     drillId,
     userAnswer,
     isCorrect,
     timeSpent
   });
+
+  // Return both the attempt and any unlock result
+  return {
+    attempt: result.attempt,
+    unlockResult: result.unlockResult
+  };
 }
 
 export async function completeSessionAction(userId: string, sessionId: string) {
@@ -195,4 +220,8 @@ export async function completeSessionAction(userId: string, sessionId: string) {
 
 export async function unlockRuleAction(userId: string, ruleId: string) {
   return await unlockUserRule(userId, ruleId);
+}
+
+export async function getUnlockProgressAction(userId: string, ruleId: string) {
+  return await getUnlockProgress(userId, ruleId);
 }

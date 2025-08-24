@@ -2,6 +2,7 @@ import type { APIEvent } from "@solidjs/start/server";
 import { LLMService } from "~/services/llm/LLMService";
 import { getUserProgressWithRules, createConjugationDrill, createDrillSession } from "~/server/db/conjugation-queries";
 import { CONJUGATION_RULES, getRulesByOrder } from "~/lib/conjugation-rules";
+import { getWordSeedsForPrompt } from "~/lib/word-seeds";
 
 export const POST = async (event: APIEvent) => {
   try {
@@ -56,6 +57,9 @@ export const POST = async (event: APIEvent) => {
       rulesToFocus = [...new Set([...weakRules, ...recentRules, ...unlockedRuleIds.slice(-2)])];
     }
 
+    // Get random word seeds for variety
+    const wordSeeds = await getWordSeedsForPrompt();
+
     // Create prompt for LLM to generate drills
     const rulesContext = CONJUGATION_RULES
       .filter(rule => rulesToFocus.includes(rule.id))
@@ -76,7 +80,7 @@ export const POST = async (event: APIEvent) => {
       })
       .join('\n');
 
-    const prompt = `Generate ${count} Spanish conjugation drill exercises based on these rules:
+    const prompt = `${wordSeeds}Generate ${count} Spanish conjugation drill exercises based on these rules:
 
 ${rulesContext}
 
@@ -91,6 +95,7 @@ Requirements:
 3. Focus more on rules where the user has lower accuracy
 4. Make sentences natural and contextually clear about the required tense
 5. Include a mix of easy and challenging examples
+6. IMPORTANT: Incorporate the provided random words into your sentences for variety and to avoid repetitive content. Use them as nouns, subjects, or context within the sentences to create diverse scenarios.
 
 Return ONLY a JSON array with this exact format:
 [
@@ -108,17 +113,17 @@ Return ONLY a JSON array with this exact format:
 Tenses to use: ${Array.from(new Set(CONJUGATION_RULES.filter(r => rulesToFocus.includes(r.id)).flatMap(r => r.tenses))).join(', ')}`;
 
     const llmService = new LLMService('gpt-4o');
-    const response = await llmService.generateResponse([
-      { role: 'user', content: prompt }
-    ]);
+    const response = await llmService.getStructuredResponse({
+      prompt,
+      schema: 'Array of drill objects with sentence, verb, pronoun, tense, correctAnswer, ruleId, and difficulty properties'
+    });
 
-    let generatedDrills;
-    try {
-      generatedDrills = JSON.parse(response);
-    } catch (parseError) {
-      console.error('Failed to parse LLM response:', response);
-      throw new Error('Invalid response format from LLM');
+    if (response.error) {
+      console.error('LLM service error:', response.error);
+      throw new Error('Failed to generate drills from LLM');
     }
+
+    const generatedDrills = response.data;
 
     // Save drills to database
     const savedDrills = [];

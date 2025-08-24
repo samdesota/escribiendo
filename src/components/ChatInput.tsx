@@ -15,7 +15,7 @@ export interface ChatInputProps {
 }
 
 export default function ChatInput(props: ChatInputProps) {
-  let textareaRef: HTMLTextAreaElement;
+  let textareaRef: HTMLTextAreaElement | undefined;
   
   // Auto-resize functionality
   const adjustHeight = () => {

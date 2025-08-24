@@ -761,7 +761,6 @@ export default function ChatConversation(props: ChatConversationProps) {
             ? "Suggestion mode active..."
             : "Type your message... (Tab for Spanish suggestions)"
           }
-          disabled={suggestionState().isLoading || isGettingResponse()}
           showSendButton={true}
           isLoading={isGettingResponse()}
           isActive={suggestionState().isActive}

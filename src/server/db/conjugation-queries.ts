@@ -274,6 +274,112 @@ export async function getDrillSessionWithDrills(userId: string, sessionId: strin
 }
 
 /**
+ * Get recent drill attempts for a specific rule
+ */
+export async function getRecentDrillAttemptsForRule(userId: string, ruleId: string, limit: number = 20) {
+  // First get all drills for this rule
+  const rulesDrills = await getConjugationDrillsByRule(ruleId);
+  const drillIds = rulesDrills.map(drill => drill.id);
+  
+  if (drillIds.length === 0) return [];
+
+  return await db
+    .select()
+    .from(userDrillAttempts)
+    .where(and(
+      eq(userDrillAttempts.userId, userId),
+      inArray(userDrillAttempts.drillId, drillIds)
+    ))
+    .orderBy(desc(userDrillAttempts.createdAt))
+    .limit(limit);
+}
+
+/**
+ * Check if user should unlock next rule based on recent performance
+ */
+export async function checkAndUnlockNextRule(userId: string, currentRuleId: string) {
+  const recentAttempts = await getRecentDrillAttemptsForRule(userId, currentRuleId, 20);
+  
+  // Need at least 20 attempts to consider unlocking
+  if (recentAttempts.length < 20) {
+    return null;
+  }
+
+  // Calculate accuracy of last 20 attempts for current rule
+  const correctCount = recentAttempts.filter(attempt => attempt.isCorrect).length;
+  const accuracy = correctCount / recentAttempts.length;
+
+  // Check if current rule meets 90% threshold
+  if (accuracy >= 0.9) {
+    // Get all rules ordered by sequence
+    const allRules = await getVerbRules();
+    const userProgress = await getUserProgressWithRules(userId);
+    const unlockedRuleIds = userProgress
+      .filter(p => p.progress.isUnlocked)
+      .map(p => p.progress.ruleId);
+
+    // Find the next rule that should be unlocked
+    const nextRule = allRules.find(rule => !unlockedRuleIds.includes(rule.id));
+    
+    if (nextRule) {
+      // Check that ALL previous rules (up to current one) meet 90% threshold
+      const rulesUpToNext = allRules.filter(rule => rule.order < nextRule.order);
+      
+      // Check each rule's recent performance
+      for (const rule of rulesUpToNext) {
+        // Skip if rule is not unlocked yet (shouldn't happen but safety check)
+        if (!unlockedRuleIds.includes(rule.id)) {
+          continue;
+        }
+        
+        const ruleRecentAttempts = await getRecentDrillAttemptsForRule(userId, rule.id, 20);
+        
+        // If rule has fewer than 20 attempts, it doesn't meet criteria
+        if (ruleRecentAttempts.length < 20) {
+          return null;
+        }
+        
+        // Calculate accuracy for this rule
+        const ruleCorrectCount = ruleRecentAttempts.filter(attempt => attempt.isCorrect).length;
+        const ruleAccuracy = ruleCorrectCount / ruleRecentAttempts.length;
+        
+        // If any previous rule doesn't meet 90%, don't unlock
+        if (ruleAccuracy < 0.9) {
+          return null;
+        }
+      }
+      
+      // All previous rules meet criteria, unlock the next rule
+      const unlockedProgress = await unlockUserRule(userId, nextRule.id);
+      return {
+        unlockedRule: nextRule,
+        progress: unlockedProgress,
+        triggerRuleId: currentRuleId,
+        accuracy: Math.round(accuracy * 100)
+      };
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Get progress towards next rule unlock
+ */
+export async function getUnlockProgress(userId: string, ruleId: string) {
+  const recentAttempts = await getRecentDrillAttemptsForRule(userId, ruleId, 20);
+  const correctCount = recentAttempts.filter(attempt => attempt.isCorrect).length;
+  
+  return {
+    totalAttempts: recentAttempts.length,
+    correctCount,
+    accuracy: recentAttempts.length > 0 ? correctCount / recentAttempts.length : 0,
+    attemptsNeeded: Math.max(0, 20 - recentAttempts.length),
+    accuracyNeeded: 0.9
+  };
+}
+
+/**
  * Record a drill attempt and update user progress
  */
 export async function recordDrillAttempt(data: {
@@ -322,5 +428,11 @@ export async function recordDrillAttempt(data: {
     });
   }
 
-  return attempt;
+  // Check if this attempt triggers unlocking of the next rule
+  const unlockResult = await checkAndUnlockNextRule(data.userId, drill.ruleId);
+
+  return {
+    attempt,
+    unlockResult
+  };
 }
