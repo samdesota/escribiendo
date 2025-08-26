@@ -43,6 +43,7 @@ export interface TextSelectionState {
 // Journal-specific types
 export interface CorrectionSuggestion {
   id: string;
+  type: 'add' | 'remove' | 'replace';
   originalText: string;
   correctedText: string;
   startPos: number;

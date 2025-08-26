@@ -7,18 +7,19 @@
     "start": "vinxi start",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.57.0",
     "@solid-primitives/keyed": "^1.5.2",
     "@solidjs/router": "^0.15.0",
     "@solidjs/start": "^1.1.0",
-    "@types/diff": "^8.0.0",
     "@unocss/reset": "^0.65.1",
-    "diff": "^8.0.2",
     "dotenv": "^17.2.1",
     "drizzle-orm": "^0.44.4",
+    "fast-diff": "^1.3.0",
     "openai": "^5.15.0",
     "postgres": "^3.4.7",
     "prosemirror-commands": "^1.7.1",
@@ -49,6 +50,7 @@
     "@types/prosemirror-state": "^1.4.0",
     "@types/prosemirror-transform": "^1.5.0",
     "@types/prosemirror-view": "^1.24.0",
-    "drizzle-kit": "^0.31.4"
+    "drizzle-kit": "^0.31.4",
+    "prettier": "^3.6.2"
   }
 }

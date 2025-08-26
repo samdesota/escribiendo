@@ -187,3 +187,7 @@ export type UserDrillAttempt = typeof userDrillAttempts.$inferSelect;
 export type NewUserDrillAttempt = typeof userDrillAttempts.$inferInsert;
 export type DrillSession = typeof drillSessions.$inferSelect;
 export type NewDrillSession = typeof drillSessions.$inferInsert;
+export type JournalEntry = typeof journalEntries.$inferSelect;
+export type NewJournalEntry = typeof journalEntries.$inferInsert;
+export type JournalCorrection = typeof journalCorrections.$inferSelect;
+export type NewJournalCorrection = typeof journalCorrections.$inferInsert;

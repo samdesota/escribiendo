@@ -42,34 +42,38 @@ export const REGULAR_CHAT_PROMPT = `You are a helpful Spanish conversation partn
 
 **Student's message:** {{USER_MESSAGE}}
 
-Respond naturally in Spanish:`
+Respond naturally in Spanish:`;
 
-export const SIDE_CHAT_PROMPT = `You are a Spanish grammar and language expert helping a student understand a specific suggestion. The student has received a Spanish suggestion and wants to understand the grammar, why certain words were chosen, or ask questions about the language.
+export const SIDE_CHAT_PROMPT = `You are a Spanish language expert. Be conversational and direct - answer the student's questions without being overly verbose.
 
-You should:
-1. Explain grammar rules clearly in English
-2. Break down word choices and explain why they're natural
-3. Provide context about regional usage (Spanish from Spain focus)
-4. Answer any follow-up questions about the language
-5. Be encouraging and educational
+**User context start** 
+{{ORIGINAL_CONTEXT}}
+**User context end**
 
-**Original context:** {{ORIGINAL_CONTEXT}}
-**Spanish suggestion:** {{SPANISH_SUGGESTION}}
+**Specifically, the user has asked about this:**
+{{SPANISH_SUGGESTION}}
 
-**Student's question or comment:** {{STUDENT_MESSAGE}}
+**Now, respond to the user, here is the question they have asked about this:**
+{{STUDENT_MESSAGE}}`;
 
-Please provide a helpful explanation:`;
-
-export function buildChatSuggestionPrompt(userInput: string, chatContext: string = ''): string {
-  return CHAT_SUGGESTION_PROMPT
-    .replace('{{USER_INPUT}}', userInput)
-    .replace('{{CHAT_CONTEXT}}', chatContext);
+export function buildChatSuggestionPrompt(
+  userInput: string,
+  chatContext: string = ''
+): string {
+  return CHAT_SUGGESTION_PROMPT.replace('{{USER_INPUT}}', userInput).replace(
+    '{{CHAT_CONTEXT}}',
+    chatContext
+  );
 }
 
-export function buildRegularChatPrompt(userMessage: string, chatHistory: string = ''): string {
-  return REGULAR_CHAT_PROMPT
-    .replace('{{USER_MESSAGE}}', userMessage)
-    .replace('{{CHAT_HISTORY}}', chatHistory);
+export function buildRegularChatPrompt(
+  userMessage: string,
+  chatHistory: string = ''
+): string {
+  return REGULAR_CHAT_PROMPT.replace('{{USER_MESSAGE}}', userMessage).replace(
+    '{{CHAT_HISTORY}}',
+    chatHistory
+  );
 }
 
 export function buildSideChatPrompt(
@@ -77,8 +81,7 @@ export function buildSideChatPrompt(
   spanishSuggestion: string,
   studentMessage: string
 ): string {
-  return SIDE_CHAT_PROMPT
-    .replace('{{ORIGINAL_CONTEXT}}', originalContext)
+  return SIDE_CHAT_PROMPT.replace('{{ORIGINAL_CONTEXT}}', originalContext)
     .replace('{{SPANISH_SUGGESTION}}', spanishSuggestion)
     .replace('{{STUDENT_MESSAGE}}', studentMessage);
 }
@@ -137,28 +140,37 @@ export function buildTranslationPrompt(
   contextMessage: string,
   chatContext: string = ''
 ): string {
-  return TRANSLATION_PROMPT
-    .replace('{{SELECTED_TEXT}}', selectedText)
+  return TRANSLATION_PROMPT.replace('{{SELECTED_TEXT}}', selectedText)
     .replace('{{CONTEXT_MESSAGE}}', contextMessage)
     .replace('{{CHAT_CONTEXT}}', chatContext);
 }
 
-export function buildAssistantQuestionsPrompt(previousQuestions: string[] = []): string {
+export function buildAssistantQuestionsPrompt(
+  previousQuestions: string[] = []
+): string {
   if (previousQuestions.length === 0) {
     return ASSISTANT_QUESTIONS_PROMPT;
   }
-  
+
   const previousQuestionsText = previousQuestions.map(q => `- ${q}`).join('\n');
-  
-  return ASSISTANT_QUESTIONS_PROMPT + `\n\n**AVOID THESE PREVIOUS QUESTIONS:**\n${previousQuestionsText}\n\nMake sure your new questions are completely different from the ones listed above:`;
+
+  return (
+    ASSISTANT_QUESTIONS_PROMPT +
+    `\n\n**AVOID THESE PREVIOUS QUESTIONS:**\n${previousQuestionsText}\n\nMake sure your new questions are completely different from the ones listed above:`
+  );
 }
 
-export function buildUserQuestionsPrompt(previousQuestions: string[] = []): string {
+export function buildUserQuestionsPrompt(
+  previousQuestions: string[] = []
+): string {
   if (previousQuestions.length === 0) {
     return USER_QUESTIONS_PROMPT;
   }
-  
+
   const previousQuestionsText = previousQuestions.map(q => `- ${q}`).join('\n');
-  
-  return USER_QUESTIONS_PROMPT + `\n\n**AVOID THESE PREVIOUS QUESTIONS:**\n${previousQuestionsText}\n\nMake sure your new questions are completely different from the ones listed above:`;
+
+  return (
+    USER_QUESTIONS_PROMPT +
+    `\n\n**AVOID THESE PREVIOUS QUESTIONS:**\n${previousQuestionsText}\n\nMake sure your new questions are completely different from the ones listed above:`
+  );
 }

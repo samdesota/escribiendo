@@ -11,10 +11,12 @@ export default function App() {
   return (
     <Router
       root={(props) => (
-        <>
+        <div class="h-screen flex flex-col">
           <Nav />
-          <Suspense>{props.children}</Suspense>
-        </>
+          <div class="flex-1 overflow-hidden">
+            <Suspense>{props.children}</Suspense>
+          </div>
+        </div>
       )}
     >
       <FileRoutes />

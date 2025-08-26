@@ -1,102 +1,146 @@
-import { Suspense, createSignal, createResource, Show, onMount } from "solid-js";
-import { createAsync, query, RouteDefinition, action, redirect, revalidate } from "@solidjs/router";
-import { ClientLLMService } from "~/services/llm";
-import JournalEditor from "~/components/JournalEditor";
-import { getJournalEntries, getJournalEntry } from "~/server/db/journal-queries";
-import type { journalEntries } from "~/server/db/schema";
+import { Suspense, createSignal } from 'solid-js';
+import {
+  createAsync,
+  query,
+  RouteDefinition,
+  A,
+  useNavigate,
+  useLocation,
+  revalidate,
+} from '@solidjs/router';
+import {
+  getJournalEntries,
+  createJournalEntry,
+} from '~/server/db/journal-queries';
+import { Show } from 'solid-js';
+import type { RouteSectionProps } from '@solidjs/router';
 
 // Mock user ID for now - replace with actual auth later
-const MOCK_USER_ID = "user-123";
+const MOCK_USER_ID = 'user-123';
 
 // Server queries
 const journalEntriesQuery = query(async () => {
-  "use server";
+  'use server';
   return await getJournalEntries(MOCK_USER_ID);
-}, "journal-entries");
+}, 'journal-entries');
 
-export const route = { 
-  preload: () => journalEntriesQuery() 
+export const route = {
+  preload: () => journalEntriesQuery(),
 } satisfies RouteDefinition;
 
-export default function JournalPage() {
+export default function JournalLayout(props: RouteSectionProps) {
   const journalEntries = createAsync(() => journalEntriesQuery());
-  const [selectedEntryId, setSelectedEntryId] = createSignal<string | null>(null);
-  const [llmService] = createSignal(new ClientLLMService());
+  const navigate = useNavigate();
+  const location = useLocation();
 
-  // Create new journal entry
+  // Create new journal entry and navigate to it
   const createNewEntry = async () => {
-    const newEntryId = `journal-${Date.now()}`;
-    setSelectedEntryId(newEntryId);
-    // The JournalEditor will handle creation when content is first saved
+    try {
+      const newEntryId = `${Date.now()}`;
+
+      // Actually create the journal entry in the database
+      await createJournalEntry({
+        id: newEntryId,
+        userId: MOCK_USER_ID,
+        title: 'Nueva Entrada',
+        content: { type: 'doc', content: [] }, // Empty ProseMirror document
+        plainText: '',
+        wordCount: 0,
+      });
+
+      // Revalidate the entries list to show the new entry
+      revalidate(journalEntriesQuery.key);
+
+      // Navigate to the new entry
+      navigate(`/journal/${newEntryId}`);
+    } catch (error) {
+      console.error('Error creating new journal entry:', error);
+      // TODO: Show user-friendly error message
+    }
   };
 
-  // Load existing entry
-  const loadEntry = (entryId: string) => {
-    setSelectedEntryId(entryId);
+  // Navigate to existing entry
+  const openEntry = (entryId: string) => {
+    navigate(`/journal/${entryId}`);
+  };
+
+  // Get current entry ID from URL
+  const getCurrentEntryId = () => {
+    const parts = location.pathname.split('/');
+    return parts[2] || null;
   };
 
   return (
-    <div class="flex h-screen bg-gray-50">
+    <div class='flex h-full bg-gray-50'>
       {/* Journal Entries Sidebar */}
-      <div class="w-80 bg-white border-r border-gray-200 flex flex-col">
-        <div class="p-4 border-b border-gray-200">
-          <div class="flex items-center justify-between mb-4">
-            <h1 class="text-xl font-semibold text-gray-900">
-              Diario en Español
-            </h1>
+      <div class='w-80 bg-white border-r border-gray-200 flex flex-col h-full'>
+        <div class='p-4 border-b border-gray-200 flex-shrink-0'>
+          <div class='flex items-center justify-between mb-4'>
+            <A href='/journal' class='text-decoration-none'>
+              <h1 class='text-xl font-semibold text-gray-900 hover:text-blue-600 transition-colors'>
+                Diario en Español
+              </h1>
+            </A>
             <button
               onClick={createNewEntry}
-              class="px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
+              class='px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm'
             >
               Nueva Entrada
             </button>
           </div>
-          <p class="text-sm text-gray-600">
+          <p class='text-sm text-gray-600'>
             Práctica escribiendo en español con correcciones inteligentes
           </p>
         </div>
 
         {/* Entries List */}
-        <div class="flex-1 overflow-y-auto">
-          <Suspense fallback={
-            <div class="p-4">
-              <div class="animate-pulse space-y-3">
-                {Array.from({length: 5}).map((_, i) => (
-                  <div class="h-16 bg-gray-200 rounded-lg"></div>
-                ))}
+        <div class='flex-1 overflow-y-auto min-h-0'>
+          <Suspense
+            fallback={
+              <div class='p-4'>
+                <div class='animate-pulse space-y-3'>
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <div class='h-16 bg-gray-200 rounded-lg'></div>
+                  ))}
+                </div>
               </div>
-            </div>
-          }>
+            }
+          >
             <Show when={journalEntries()}>
-              {(entries) => (
-                <div class="p-2">
+              {entries => (
+                <div class='p-2'>
                   {entries().length === 0 ? (
-                    <div class="p-4 text-center text-gray-500">
-                      <p class="mb-2">No hay entradas aún</p>
-                      <p class="text-sm">Crea tu primera entrada para empezar</p>
+                    <div class='p-4 text-center text-gray-500'>
+                      <p class='mb-2'>No hay entradas aún</p>
+                      <p class='text-sm'>
+                        Crea tu primera entrada para empezar
+                      </p>
                     </div>
                   ) : (
-                    <div class="space-y-2">
-                      {entries().map((entry) => (
+                    <div class='space-y-2'>
+                      {entries().map(entry => (
                         <button
-                          onClick={() => loadEntry(entry.id)}
+                          onClick={() => openEntry(entry.id)}
                           class={`w-full p-3 text-left rounded-lg transition-colors ${
-                            selectedEntryId() === entry.id
+                            getCurrentEntryId() === entry.id
                               ? 'bg-blue-50 border border-blue-200'
                               : 'hover:bg-gray-50 border border-transparent'
                           }`}
                         >
-                          <div class="font-medium text-gray-900 mb-1 truncate">
+                          <div class='font-medium text-gray-900 mb-1 truncate'>
                             {entry.title}
                           </div>
-                          <div class="text-sm text-gray-500 mb-1">
-                            {new Date(entry.updatedAt).toLocaleDateString('es-ES', {
-                              day: 'numeric',
-                              month: 'long',
-                              year: 'numeric'
-                            })}
+                          <div class='text-sm text-gray-500 mb-1'>
+                            {new Date(entry.updatedAt).toLocaleDateString(
+                              'es-ES',
+                              {
+                                day: 'numeric',
+                                month: 'long',
+                                year: 'numeric',
+                              }
+                            )}
                           </div>
-                          <div class="text-xs text-gray-400">
+                          <div class='text-xs text-gray-400'>
                             {entry.wordCount} palabras
                           </div>
                         </button>
@@ -110,43 +154,8 @@ export default function JournalPage() {
         </div>
       </div>
 
-      {/* Main Editor Area */}
-      <div class="flex-1 flex flex-col">
-        <Show 
-          when={selectedEntryId()} 
-          fallback={
-            <div class="flex-1 flex items-center justify-center text-gray-500">
-              <div class="text-center max-w-md">
-                <h2 class="text-2xl font-semibold mb-4">
-                  Bienvenido a tu Diario en Español
-                </h2>
-                <p class="mb-6 text-gray-600">
-                  Selecciona una entrada existente o crea una nueva para empezar a escribir.
-                  Usa <kbd class="px-2 py-1 bg-gray-100 rounded text-sm font-mono">Tab</kbd> para obtener correcciones
-                  y <kbd class="px-2 py-1 bg-gray-100 rounded text-sm font-mono">Shift+Enter</kbd> para ayuda gramatical.
-                </p>
-                <button
-                  onClick={createNewEntry}
-                  class="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                >
-                  Crear Primera Entrada
-                </button>
-              </div>
-            </div>
-          }
-        >
-          {(entryId) => (
-            <JournalEditor
-              entryId={entryId()}
-              llmService={llmService()}
-              onTitleChange={(title: string) => {
-                // Update title in sidebar if needed
-                revalidate(journalEntriesQuery.key);
-              }}
-            />
-          )}
-        </Show>
-      </div>
+      {/* Main Content Area */}
+      <div class='flex-1 flex flex-col h-full overflow-hidden'>{props.children}</div>
     </div>
   );
 }
