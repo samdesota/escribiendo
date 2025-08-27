@@ -155,7 +155,9 @@ export default function JournalLayout(props: RouteSectionProps) {
       </div>
 
       {/* Main Content Area */}
-      <div class='flex-1 flex flex-col h-full overflow-hidden'>{props.children}</div>
+      <div class='flex-1 flex flex-col h-full overflow-hidden'>
+        {props.children}
+      </div>
     </div>
   );
 }
