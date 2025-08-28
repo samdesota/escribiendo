@@ -50,9 +50,6 @@ export default function SelectableText(props: SelectableTextProps) {
       onTranslationReady: props.onTranslationReady,
     });
 
-  // Generate unique element ID for this instance
-  const elementId = `selectable-text-${Math.random().toString(36).substr(2, 9)}`;
-
   // Handle text selection for translation
   const handleTextSelection = async () => {
     if (typeof window === 'undefined') return;
@@ -75,12 +72,10 @@ export default function SelectableText(props: SelectableTextProps) {
     const selectableElement =
       range.commonAncestorContainer.nodeType === Node.TEXT_NODE
         ? range.commonAncestorContainer.parentElement?.closest(
-            `[data-selectable-id="${elementId}"]`
+            `[data-selectable-text]`
           )
         : range.commonAncestorContainer instanceof Element
-          ? range.commonAncestorContainer.closest(
-              `[data-selectable-id="${elementId}"]`
-            )
+          ? range.commonAncestorContainer.closest(`[data-selectable-text]`)
           : null;
 
     if (!selectableElement) {
@@ -120,7 +115,7 @@ export default function SelectableText(props: SelectableTextProps) {
   const handleClickOutside = (event: MouseEvent) => {
     const target = event.target as Element;
     if (
-      !target.closest(`[data-selectable-id="${elementId}"]`) &&
+      !target.closest(`[data-selectable-text]`) &&
       !target.closest('.translation-tooltip')
     ) {
       clearTranslation();
@@ -148,7 +143,7 @@ export default function SelectableText(props: SelectableTextProps) {
     <>
       {/* Wrapped content with selectable attribute */}
       <div
-        data-selectable-id={elementId}
+        data-selectable-text={true}
         class={props.className || ''}
         style={{ 'user-select': 'text' }}
       >

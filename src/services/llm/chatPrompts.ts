@@ -94,6 +94,7 @@ export const TRANSLATION_PROMPT = `You are a Spanish-English translation expert.
 3. Keep translations concise and clear
 4. Consider the context provided to ensure accurate translation
 5. Respond with ONLY the English translation - no quotes, no additional text
+6. Except, If the text is one conjugated verb, after the translation provide the infintive and mood / tense in parentheses.
 
 **Context from the conversation:** {{CHAT_CONTEXT}}
 **Full message containing the selected text:** {{CONTEXT_MESSAGE}}

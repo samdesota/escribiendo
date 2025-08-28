@@ -43,6 +43,13 @@
       "when": 1756035216979,
       "tag": "0005_swift_paibok",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1756337369403,
+      "tag": "0006_high_wolfpack",
+      "breakpoints": true
     }
   ]
 }
